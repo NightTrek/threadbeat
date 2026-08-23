@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt,clippy
+      - name: Format
+        run: cargo +1.98.0 fmt --all -- --check
+      - name: Lint
+        run: cargo +1.98.0 clippy --all-targets --locked -- -D warnings
+      - name: Test
+        run: cargo +1.98.0 test --all-targets --locked
+      - name: Release build
+        run: cargo +1.98.0 build --release --locked

@@ -1,0 +1,40 @@
+# Threadbeat starts safely with delivery disabled. Replace every example path
+# and identity value after inspecting the actual host and existing app-server.
+stateDir = "/home/CHANGE_ME/.local/share/threadbeat"
+runtimeDir = "/run/user/CHANGE_ME/threadbeat"
+
+[scheduler]
+pollMillis = 1000
+maxPromptBytes = 32768
+maxLocalBacklogPerTask = 100
+maxRemoteQueueDepth = 50
+clockJumpQuarantineSeconds = 30
+
+[delivery]
+enabled = false
+strictCompatibility = true
+
+[consent]
+mode = "cli_grant"
+grantTtlSeconds = 900
+
+# Uncomment only after locating a separately managed app-server daemon. This
+# endpoint is never created or started by Threadbeat.
+# [appServer]
+# probeThreadId = "existing-disposable-or-current-task-id"
+# connectTimeoutMillis = 5000
+# requestTimeoutMillis = 15000
+# maxFrameBytes = 1048576
+#
+# [appServer.endpoint]
+# kind = "unix_web_socket"
+# path = "/run/user/1000/codex-app-server.sock"
+# requestUri = "ws://localhost/"
+#
+# Add only exact build identities backed by a completed semantic test. A
+# version match on another OS or platform family does not authorize delivery.
+# [[appServer.verifiedBuilds]]
+# exactUserAgent = "codex-cli/EXACT_VERSION"
+# exactPlatformFamily = "unix"
+# exactPlatformOs = "linux"
+# evidenceId = "local-semantic-matrix-YYYY-MM-DD"

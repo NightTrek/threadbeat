@@ -1,0 +1,9 @@
+/target/
+/bin/threadbeat
+/work/
+/.threadbeat-dev/
+*.db
+*.db-shm
+*.db-wal
+*.sock
+.DS_Store
