@@ -328,7 +328,7 @@ The Pi acceptance test measures bytes written per occurrence and extrapolated wr
 
 ## Required adversarial validation
 
-Before implementation approval, independent reviewers must challenge:
+Before production approval, independent reviewers must challenge:
 
 - the same-user/local socket boundary;
 - SSH proxy confinement and Unix-socket path/peer validation;
@@ -347,4 +347,4 @@ Findings and resulting changes will be recorded below rather than erased.
 
 The full independent findings, corrections, dispositions, and no-ship gate are recorded in `07_ADVERSARIAL_REVIEW.md`. The normative clock, occurrence identity, coalescing, remote-mutation, low-disk, retention, and fairness revisions are in `08_STATE_AND_TIME_SEMANTICS.md`.
 
-Verdict: proceed only with the disposable compatibility/consent/failure-semantics spike. Persistent schema, MCP mutation service, installation, and unattended execution remain blocked until the eight blocker classes have tested solutions or explicitly accepted limitations.
+Verdict at the design gate: proceed with a fail-closed alpha implementation and disposable compatibility/consent/failure-semantics tests. Production delivery, unattended execution, and signed distribution remain blocked until the unresolved classes in `10_IMPLEMENTATION_STATUS.md` have tested solutions or explicitly accepted limitations.

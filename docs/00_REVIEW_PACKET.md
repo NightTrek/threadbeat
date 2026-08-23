@@ -1,10 +1,10 @@
 # Threadbeat architecture review packet
 
-Status: revised proposal; only a disposable compatibility spike is currently approved, 2026-08-22
+Status: v0.1 alpha implemented with delivery disabled by default, 2026-08-23. See `10_IMPLEMENTATION_STATUS.md` for the verified implementation boundary and remaining release gates.
 
-## Recommendation
+## Implemented recommendation
 
-Build one lean Rust binary with separate `daemon`, `mcp`, `ctl`, `service`, and `schema` modes, packaged in a Codex plugin with two skills:
+Threadbeat is one lean Rust binary with separate `daemon`, `mcp`, `ctl`, `service`, and `schema` modes, packaged in a Codex plugin with two skills:
 
 1. an automation skill that teaches the agent when and how to create same-thread heartbeats; and
 2. a setup skill that installs, validates, upgrades, and removes the resident service.
@@ -59,7 +59,7 @@ This is preferable to calling `turn/start`: current `turn/start` can steer input
 4. **Wakewire** — emphasizes remote wakeups and daemon connectivity.
 5. **Thread Relay** — clear and descriptive, though less ownable as a brand.
 
-The repository stays at `codex-automations-plugin` until a name is chosen, avoiding churn in package IDs and service names.
+The product and package name is now **Threadbeat**. The repository retains its original planning-era directory name, `codex-automations-plugin`.
 
 ## MVP package
 
@@ -74,15 +74,17 @@ threadbeat/
 │   └── threadbeat
 ├── assets/
 │   ├── composer-icon.png
-│   ├── logo-light.png
+│   ├── logo.png
 │   ├── logo-dark.png
-│   └── screenshots/
+│   └── threadbeat-master.png
 └── LICENSE
 ```
 
-Prebuilt, signed and checksummed whole-plugin bundles are the default distribution path for Raspberry Pi 64-bit, Linux x86-64, and Apple Silicon/Intel macOS. Building on the device remains a supported fallback, not a requirement. Release builds commit `Cargo.lock`, pin the Rust MCP SDK, and receive a native arm64 Pi smoke test against the oldest supported OS/ABI.
+Prebuilt, signed and checksummed whole-plugin bundles remain the intended distribution path for Raspberry Pi 64-bit, Linux x86-64, and Apple Silicon/Intel macOS. They have not yet been produced. The current alpha supports a pinned source build, commits `Cargo.lock`, and pins the Rust MCP SDK; native arm64 Pi smoke and soak evidence remains a release gate.
 
-## What the MVP includes
+## MVP target
+
+This is the target product contract. Items not yet complete are called out in `10_IMPLEMENTATION_STATUS.md` and must not be inferred from this list as verified runtime behavior.
 
 - Same-task heartbeat schedules.
 - One-shot, anchored interval, and weekly local-time schedules.
@@ -94,7 +96,7 @@ Prebuilt, signed and checksummed whole-plugin bundles are the default distributi
 - Strict service/socket permissions, redacted logs, and no agent-callable endpoint reconfiguration.
 - Current-task MCP scoping, authority-drift checks, queue-row ownership digests, and conservative ambiguity handling.
 
-## Proposed agent tool surface
+## Agent tool surface
 
 The implemented package exposes six risk-separated tools. Schedule normalization is explained or visualized conversationally before the agent calls the mutation tool; there is no separate preview tool:
 
@@ -105,7 +107,7 @@ The implemented package exposes six risk-separated tools. Schedule normalization
 5. `automation_runs`
 6. `automation_doctor`
 
-The current Codex app exposes one direct `codex_app__automation_update` tool; its exact description and declaration are captured in `06_RESEARCH_BASELINE.md`. Threadbeat retains `automation_update` for schedule changes and separates high-risk immediate/recovery operations into `automation_run` so MCP annotations and consent policy remain accurate. Complete proposed descriptions, arguments, results, annotations, errors, and shared types are in `03_MCP_TOOL_CONTRACT.md`.
+The current Codex app exposes one direct `codex_app__automation_update` tool; its exact description and declaration are captured in `06_RESEARCH_BASELINE.md`. Threadbeat retains `automation_update` for schedule changes and separates high-risk immediate/recovery operations into `automation_run` so MCP annotations and consent policy remain accurate. Complete implemented descriptions, arguments, results, annotations, errors, and shared types are in `03_MCP_TOOL_CONTRACT.md`.
 
 ## Explicit non-goals for MVP
 
@@ -120,29 +122,23 @@ The current Codex app exposes one direct `codex_app__automation_update` tool; it
 - Direct WSS app-server access in v1; the tested CLI exposes WebSocket but not native TLS termination.
 - A promise that Threadbeat starts or keeps the separately managed Codex app-server alive.
 
-## Decisions requested at the review gate
+## Decisions remaining at the release gate
 
-The architecture has opinionated defaults. Five decisions are worth resolving before persistent implementation:
+The architecture has opinionated defaults. Five decisions are worth resolving before production enablement and distribution:
 
-1. **Name:** accept `Threadbeat`, choose another candidate, or supply a new name.
+1. **Name:** `Threadbeat` is selected for the alpha; confirm or change it before signed distribution.
 2. **Experimental dependency:** accept that strict same-thread delivery remains a technical preview until a released Codex build passes the queue crash/semantics matrix and `thread/queue/*` stabilizes.
 3. **Inherited authority:** accept the documented same-task settings race, require dedicated scheduler-owned tasks, or wait for an upstream authority-snapshot API.
 4. **Consent policy:** keep host/CLI-confirmed activation as the secure default, with `trusted_agent_current_task` available only as a setup-time personal-use opt-in.
 5. **Calendar catch-up:** accept one coalesced catch-up within 24 hours for both interval and weekly heartbeats, or make weekly schedules skip by default.
 
-SSH-to-loopback is now the only v1 remote path; direct WSS is deferred. Everything else in this packet is proposed as a default rather than another setup question.
+SSH-to-loopback is now the only v1 remote path; direct WSS is deferred. The remaining items are alpha defaults and explicit release decisions, not blockers to inspecting or building the local package.
 
-## Image plan
+## Image assets
 
-Image generation belongs immediately after the name decision so the marks do not need to be discarded. The proposed asset set is:
+The alpha includes an original pulse-plus-thread mark without OpenAI/Codex trade dress in `assets/threadbeat-master.png`, `assets/logo.png`, `assets/logo-dark.png`, and `assets/composer-icon.png`. The two manifest logos intentionally share the same transparent source so they remain consistent across themes.
 
-- a simple pulse-plus-thread composer icon that remains legible at 16–32 px;
-- coordinated light and dark square logos;
-- a schedule-preview screenshot showing weekday/time normalization;
-- a run-lifecycle screenshot separating scheduled, thread-queued, running, and completed states; and
-- a daemon-health screenshot showing the Pi, SSH/Unix-socket path, and app-server capability status.
-
-All images will be generated without OpenAI/Codex trade dress unless branding permission is established, then reviewed at actual manifest sizes.
+Schedule, lifecycle, and daemon-health screenshots remain future release collateral; they must be captured from verified runtime state rather than mocked as evidence.
 
 ## Evidence boundary
 

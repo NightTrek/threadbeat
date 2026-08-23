@@ -1,6 +1,6 @@
 # Architecture
 
-Status: proposed architecture, source snapshot 2026-08-22
+Status: implemented alpha architecture, source snapshot 2026-08-22; release gaps are tracked in `10_IMPLEMENTATION_STATUS.md`
 
 ## Architectural decision
 
@@ -82,7 +82,7 @@ One Rust workspace produces one release binary:
 - `threadbeat --config <path> ctl call --thread-id <id> --tool <name> --arguments <json>`: invoke a task-scoped control operation.
 - `threadbeat --config <path> ctl authorize --thread-id <id> [--minutes <1-1440>]`: grant temporary task-scoped activation authority.
 - `threadbeat --config <path> ctl doctor --thread-id <id> [--full]`: request sanitized diagnostics from the running daemon.
-- `threadbeat --config <path> service plan --destination <path> [--output <plan.json>]` and `threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>`: render or write an exact reviewed service definition; apply never activates it.
+- `threadbeat --config <path> service plan --destination <path> [--output <plan.json>]` and `threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>`: render or apply an exact reviewed service plan. Apply requires all three parents to exist, creates exactly the configured private state/runtime leaf directories at `0700` and service definition at `0600`, and never loads, enables, starts, or otherwise activates the service.
 - `threadbeat --config <path> schema check`: probe the configured app-server compatibility without delivery.
 
 The plugin contributes:
@@ -316,13 +316,13 @@ There remains an upstream race between the final settings check and automatic qu
 
 ### Raspberry Pi/Linux
 
-Default: a systemd user service with lingering for a single-user device. The process runs in the foreground with `Restart=on-failure`, explicit state/runtime directories, empty capabilities, restricted address families, `NoNewPrivileges`, core dumps disabled, narrowly bound app-server/SSH paths, rate-limited redacted journald output, and credentials loaded from systemd facilities rather than command arguments. Same-UID compromise is considered full compromise; a dedicated account is the stronger deployment mode.
+Default: a systemd user service for a single-user device. Enabling lingering so it starts before login is a separate, explicit operator decision. The process runs in the foreground with `Restart=on-failure`, explicit state/runtime directories, empty capabilities, restricted address families, `NoNewPrivileges`, core dumps disabled, narrowly bound app-server/SSH paths, rate-limited redacted journald output, and credentials loaded from systemd facilities rather than command arguments. The rendered unit keeps `ProtectHome=read-only` and grants write access to the configured state/runtime directories through explicit `ReadWritePaths`. Same-UID compromise is considered full compromise; a dedicated account is the stronger deployment mode.
 
 ### macOS
 
 Default: per-user LaunchAgent, foreground process, SIGTERM handling, Keychain-backed secrets, and a private application-support state directory.
 
-The Rust `service` subcommand renders units/plists, prints the exact changes, applies them only after explicit approval, and then runs `doctor`. Shell wrappers may invoke platform service managers, but scheduling and MCP logic remain Rust.
+The Rust `service` subcommand renders units/plists and prints the exact directories, file, modes, commands, and digest for review. After exact plan-and-digest approval, apply reconstructs the canonical plan, requires the selected parents to exist, creates only its configured `0700` state/runtime leaf directories, and writes its `0600` service definition. Apply never activates the service or runs `doctor`; both activation and subsequent diagnostics are separate steps. Shell wrappers may invoke platform service managers, but scheduling and MCP logic remain Rust.
 
 ## Compatibility and upgrade policy
 

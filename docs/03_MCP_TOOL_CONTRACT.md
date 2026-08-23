@@ -1,6 +1,6 @@
 # MCP tool contract
 
-Status: security-revised proposed contract; schema freeze waits on Phase-1 host-consent and app-server evidence
+Status: implemented v0.1 alpha contract; production schema freeze waits on host-consent and app-server semantic evidence
 
 ## Design rules
 
@@ -548,12 +548,12 @@ Remote queue submission IDs and raw endpoints are omitted from ordinary MCP resu
 Every mutation key is stored under:
 
 ```text
-(principal_id, originating_thread_id, operation, request_key)
+(originating_thread_id, operation, request_key)
 ```
 
-The row stores canonicalization version, SHA-256 of RFC-8785-style canonical arguments, stable created object IDs, and expiry—not the prompt or full result. Repeating the same scoped key/hash returns the stable IDs and current safe view; a different hash returns `REQUEST_KEY_CONFLICT`.
+The row stores an envelope version, reservation timestamp, random reservation nonce, SHA-256 of canonical JSON arguments, bounded safe success or error output, and expiry. The full prompt is not copied into the envelope. Completion is compare-and-set against the exact pending reservation, so a stale completion cannot overwrite a finished request. Repeating a completed scoped key/hash returns the cached safe success or deterministic failure; a different hash returns `REQUEST_KEY_CONFLICT`.
 
-Manual `run_now` identity includes a fresh server nonce bound to the request key, so two deliberately distinct immediate runs require distinct keys. Expiry/tombstone behavior is reported; a caller cannot assume idempotency forever after retention expires.
+An existing pending envelope is never treated as a fresh reservation. If a daemon interruption leaves it pending, replay returns `REQUEST_STATUS_UNCERTAIN`; the caller must inspect task-scoped automation and run state before deliberately using a new key. Create and manual/retry run identities include the operation and canonical argument digest, so retained objects do not alias after request-key expiry. A caller still cannot assume cached idempotency after the retention period.
 
 ## Stable error codes
 
@@ -568,6 +568,7 @@ Manual `run_now` identity includes a fresh server nonce bound to the request key
 | `AUTOMATION_NOT_FOUND` | ID is absent/out of current-task scope. |
 | `REVISION_CONFLICT` | Expected revision is stale. |
 | `REQUEST_KEY_CONFLICT` | Scoped idempotency key has another digest. |
+| `REQUEST_STATUS_UNCERTAIN` | A prior attempt was interrupted; inspect task state before a new key. |
 | `AUTHORITY_CHANGED` | Effective task settings no longer match the grant. |
 | `UNSAFE_AUTO_REVIEW` | Auto-review is not authorized for unattended work. |
 | `CLOCK_UNTRUSTED` | Wall-clock trust gate blocks delivery. |

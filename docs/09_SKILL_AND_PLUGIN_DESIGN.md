@@ -1,6 +1,6 @@
 # Skill and plugin design
 
-Status: implemented package scaffold; binary and image assets remain separate release work
+Status: implemented alpha package, local binary wrapper, and image assets; signed multi-platform release artifacts remain future work
 
 ## Why two skills
 
@@ -50,11 +50,11 @@ Triggers include:
 Required behavior:
 
 1. Inspect OS, architecture, libc/ABI, service manager, clock synchronization, filesystem, disk, installed Codex version, existing daemon endpoint, and chosen topology.
-2. Prefer a signed prebuilt artifact for a supported target; offer a pinned source build only as an explicit fallback with stated RAM/disk/time requirements.
+2. Prefer a signed prebuilt artifact for a supported target; offer a pinned source build only as an explicit fallback with stated RAM/disk/time requirements, and use `./scripts/build-local.sh` for that local build/package step.
 3. Support same-host Unix socket or constrained SSH proxy only in v1.
 4. Never start, install, update, or replace Codex app-server implicitly; validate the existing separately managed dependency.
-5. Run `threadbeat --config <path> service plan --destination <service-file> --output <plan.json>` first. Show exact files, permissions, binary and config paths, rendered content, activation/removal commands, and plan digest.
-6. Apply only the exact user-authorized file and digest with `threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>`. Apply writes the service file and does not activate it.
+5. Run `threadbeat --config <path> service plan --destination <service-file> --output <plan.json>` first. Show the exact binary/config paths, state/runtime directories and modes, rendered service content and mode, activation/removal commands, and plan digest.
+6. Apply only the exact user-authorized file and digest with `threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>`. Apply reconstructs the canonical plan, refuses missing parents, creates exactly the configured private state/runtime leaf directories at `0700`, and writes the service definition at `0600`. It never loads, enables, starts, or otherwise activates the service.
 7. After separately authorized activation, run `threadbeat --config <path> ctl doctor --thread-id <id> --full`, including clock trust, storage, OS lock, facade/daemon protocol, app-server initialize, tested-build allowlist, strict queue, originating-task/authority fields, and SSH confinement.
 8. Create only a disposable/paused smoke automation until Phase-1 and consent gates pass.
 9. On upgrade, drain, preserve ambiguous intents, use an absolute versioned binary, restart/handshake, and retain rollback.
@@ -73,6 +73,8 @@ threadbeat --config <path> ctl doctor --thread-id <id> --full
 threadbeat --config <path> ctl authorize --thread-id <id> --minutes 15
 threadbeat --config <path> schema check
 ```
+
+When the source-build fallback is explicitly chosen, `./scripts/build-local.sh` performs the pinned release build and packages `bin/threadbeat`; it does not install or activate a service.
 
 The current service CLI intentionally has no start, stop, status, uninstall, or rollback subcommand. Those service-manager actions are planned and authorized separately. Small signed platform launchers/wrappers are acceptable when packaging requires them, but they do not contain scheduler, credential, protocol, or migration logic.
 
@@ -99,13 +101,10 @@ threadbeat/
 │   └── threadbeat
 ├── assets/
 │   ├── composer-icon.png
-│   ├── logo-light.png
+│   ├── logo.png
 │   ├── logo-dark.png
-│   ├── schedule-preview.png
-│   ├── run-lifecycle.png
-│   └── daemon-health.png
-├── LICENSE
-└── THIRD_PARTY_NOTICES.md
+│   └── threadbeat-master.png
+└── LICENSE
 ```
 
 The release archive contains one selected target binary, not binaries for every architecture.
@@ -191,24 +190,24 @@ Release requirements:
 - semantic Codex compatibility allowlist/schema digests; and
 - no silent self-update or downgrade.
 
-## Image-generation brief
+## Image-generation result and remaining brief
 
-Generate assets only after the name is selected. The name affects both the mark and screenshot labels, and premature assets would create avoidable churn.
+The selected Threadbeat mark has been generated and packaged as a transparent continuous thread forming a subtle heartbeat and calm loop. The alpha contains the master render, manifest logo, dark-theme logo, and composer icon. It uses the provisional `#6750E8` accent with cyan and avoids OpenAI/Codex trade dress.
 
-### Composer icon
+### Implemented composer icon
 
 - Concept: one continuous thread forming a subtle pulse/heartbeat and returning into a loop.
 - Style: simple geometric mark, no letters, no clock cliché, no OpenAI/Codex trade dress.
 - Contrast: readable at 16, 20, 24, and 32 px on light/dark chrome.
-- Deliverable: square transparent PNG plus a high-resolution source render.
+- Deliverables: `assets/composer-icon.png` and `assets/threadbeat-master.png`.
 
-### Light/dark logos
+### Implemented light/dark logos
 
-- Same geometry in coordinated light/dark palettes.
+- Same transparent geometry is used in `assets/logo.png` and `assets/logo-dark.png`.
 - Calm infrastructure feel rather than alarm/medical branding.
 - Provisional accent `#6750E8`; final color receives contrast checks.
 
-### Screenshots
+### Future screenshots
 
 1. **Schedule explanation:** “10:00 and 12:00, Monday–Thursday,” timezone, next local/UTC runs, catch-up, experimental/authority notice.
 2. **Run lifecycle:** clearly separates scheduled, task-queued, running, waiting, completed, and uncertain.
