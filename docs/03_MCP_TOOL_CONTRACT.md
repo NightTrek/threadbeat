@@ -39,7 +39,7 @@ Phase 1 must prove whether the target Codex host authenticates and integrity-pro
 
 Consent policy:
 
-- `host_confirmed` (default): active create, run-now, uncertain retry, exact blocked-run start, and destructive pending-work cancellation require an unexpired server-verifiable grant bound to principal, originating task, canonical operation digest, and single use. The grant comes from supported host elicitation/approval or interactive `threadbeat ctl`.
+- `host_confirmed` (default): active create, run-now, uncertain retry, exact blocked-run start, and destructive pending-work cancellation require an unexpired server-verifiable grant bound to principal, originating task, canonical operation digest, and single use. The grant comes from supported host elicitation/approval or interactive `threadbeat --config <path> ctl authorize --thread-id <id> [--minutes <1-1440>]`.
 - `trusted_agent_current_task` (explicit setup opt-in): a host-authorized MCP invocation is accepted as consent only within the originating task, with quotas and audit. This has an explicit prompt-injection/confused-deputy warning.
 - If neither is satisfied, create can only be `suggested_create`/paused and risky run operations fail closed.
 

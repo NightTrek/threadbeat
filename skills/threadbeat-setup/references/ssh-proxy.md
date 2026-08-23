@@ -6,4 +6,4 @@ Require host-key verification, batch mode, explicit identity selection, no PTY, 
 
 Never create or alter keys, `authorized_keys`, `known_hosts`, SSH daemon settings, accounts, or forced commands without a separate exact plan and explicit authorization. Never accept a new or changed host key silently.
 
-The plan must show the host alias and fingerprint, remote account, identity reference, exact forced command, permitted address families, retry/backoff behavior, and which local credential facility protects the key. `doctor --full` must test failure-closed behavior for unknown host keys, wrong keys, unexpected commands, network loss, and app-server incompatibility.
+The deployment plan must show the host alias and fingerprint, remote account, identity reference, exact forced command, permitted address families, retry/backoff behavior, and which local credential facility protects the key. After separately authorized activation, use `threadbeat --config <absolute-config-path> ctl doctor --thread-id <originating-thread-id> --full` while testing failure-closed behavior for unknown host keys, wrong keys, unexpected commands, network loss, and app-server incompatibility.

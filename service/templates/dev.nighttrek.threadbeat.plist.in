@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.nighttrek.threadbeat</string>
+  <string>dev.nighttrek.threadbeat</string>
   <key>ProgramArguments</key>
   <array>
     <string>@THREADBEAT_BINARY@</string>
-    <string>daemon</string>
     <string>--config</string>
     <string>@THREADBEAT_CONFIG@</string>
+    <string>daemon</string>
   </array>
   <key>WorkingDirectory</key>
   <string>@WORKING_DIRECTORY@</string>

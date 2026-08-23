@@ -1,6 +1,6 @@
-# Template variables
+# Reference-template variables
 
-Every variable is required unless the platform template does not contain it.
+These tokens document desired package-time hardening inputs; the current `service plan` command renders service content in the binary and does not substitute these `.in` files. Never install a reference template containing an unresolved token. Every variable is required when a future packager deliberately renders the corresponding reference template.
 
 | Variable | Requirement |
 |---|---|
@@ -13,4 +13,4 @@ Every variable is required unless the platform template does not contain it.
 | `THREADBEAT_DOCUMENTATION` | A valid documentation URI or `man:` reference included in the approved package. |
 | `RESTRICT_ADDRESS_FAMILIES` | `AF_UNIX` for local UDS; `AF_UNIX AF_INET AF_INET6` only for approved SSH topology. |
 
-Rendering must reject missing tokens, relative paths where absolute paths are required, unsafe symlinks, unexpected owner or mode, newline or control characters, and a state database on a shared or network filesystem. No secret value is substituted into either template.
+Any future template renderer must reject missing tokens, relative paths where absolute paths are required, unsafe symlinks, unexpected owner or mode, newline or control characters, and a state database on a shared or network filesystem. No secret value is substituted into either template.

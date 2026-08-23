@@ -11,10 +11,10 @@ Codex agent
     |
     | MCP over stdio
     v
-threadbeat mcp ---------------------------+
+threadbeat mcp --stdio -------------------+
     | private local control socket         |
     v                                      |
-threadbeat daemon                          |
+threadbeat --config <path> daemon          |
     |                                      |
     +-- schedule engine                    |
     +-- SQLite schedule/occurrence ledger  |
@@ -77,11 +77,13 @@ Primary evidence: the [official app-server documentation](https://learn.chatgpt.
 
 One Rust workspace produces one release binary:
 
-- `threadbeat daemon`: scheduler, database, and persistent app-server client.
+- `threadbeat --config <path> daemon`: scheduler, database, and persistent app-server client.
 - `threadbeat mcp --stdio`: lightweight MCP facade speaking to the daemon over a private Unix socket.
-- `threadbeat ctl`: human-readable list, run, pause, resume, status, and redacted export commands.
-- `threadbeat service`: install, upgrade, uninstall, start, stop, and validate systemd/launchd configuration.
-- `threadbeat schema`: generate/check the exact app-server schema subset used by the adapter.
+- `threadbeat --config <path> ctl call --thread-id <id> --tool <name> --arguments <json>`: invoke a task-scoped control operation.
+- `threadbeat --config <path> ctl authorize --thread-id <id> [--minutes <1-1440>]`: grant temporary task-scoped activation authority.
+- `threadbeat --config <path> ctl doctor --thread-id <id> [--full]`: request sanitized diagnostics from the running daemon.
+- `threadbeat --config <path> service plan --destination <path> [--output <plan.json>]` and `threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>`: render or write an exact reviewed service definition; apply never activates it.
+- `threadbeat --config <path> schema check`: probe the configured app-server compatibility without delivery.
 
 The plugin contributes:
 

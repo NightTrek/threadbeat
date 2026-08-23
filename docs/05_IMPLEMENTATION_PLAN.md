@@ -142,7 +142,7 @@ If no released binary has the necessary queue capability, ship status remains te
 - Bind MCP to the Phase-1-proven host-validated `_meta.threadId`; deny raw cross-task targeting and keep global/cross-task work CLI-only.
 - Enforce host/CLI consent policy, principal-scoped quotas, versioned canonical idempotency, optimistic revisions, display normalization, and stable safe errors.
 - Implement structured content plus concise human-readable summaries.
-- Implement the same service API in `threadbeat ctl` for recovery when no agent is available.
+- Expose recovery through `threadbeat --config <path> ctl call --thread-id <id> --tool <name> --arguments <json>`, with dedicated `ctl authorize` and `ctl doctor` commands for consent and diagnostics when no agent is available.
 - Add tool-selection fixtures for common natural-language requests and adversarial stored data.
 
 ### Exit gate

@@ -26,10 +26,12 @@ Read the relevant platform reference before proposing changes:
 ## Plan before apply
 
 1. Prefer a signed prebuilt bundle for an explicitly supported target. Offer the pinned source build only as a fallback, with its RAM, disk, toolchain, and time requirements.
-2. Run `threadbeat service plan` for the chosen topology. A plan must show exact absolute binary/config/state/runtime paths, account, file modes, service definition, socket/SSH access, credentials source, app-server dependency, whether anything would be enabled or started, and the plan digest.
-3. Present the plan and its side effects. Do not run `service apply` until the user explicitly authorizes that exact digest.
-4. Apply only with `threadbeat service apply --plan-digest <digest>`. If the plan changes, stop and present the new digest.
-5. Run `threadbeat doctor --full` after apply. Distinguish files written, service loaded, daemon running, app-server connected, strict queue compatible, and smoke schedule verified.
+2. Run `threadbeat --config <absolute-config-path> service plan --destination <absolute-service-file> --output <absolute-plan.json>`. Add `--binary <absolute-versioned-binary>` when the currently running executable is not the intended service binary. Platform selection is automatic; use `--platform systemd-user` or `--platform launchd-agent` only when deliberately overriding it. The JSON plan must show the exact binary, config, service file content and mode, activation/removal commands, and digest.
+3. Present the saved plan, its digest, and its side effects. Do not run apply until the user explicitly authorizes that exact plan and digest.
+4. Apply only with `threadbeat --config <absolute-config-path> service apply --plan <absolute-plan.json> --plan-digest <reviewed-digest>`. If the plan changes, stop and present the new digest. Apply writes the service definition but does not load, enable, start, or bootstrap it.
+5. Treat the printed activation command as a new mutation requiring separate approval. Once the daemon is actually running, run `threadbeat --config <absolute-config-path> ctl doctor --thread-id <originating-thread-id> --full`. Distinguish files written, service activation, daemon availability, app-server connectivity, and compatibility rather than treating apply as end-to-end success.
+
+For an active-operation grant, use `threadbeat --config <absolute-config-path> ctl authorize --thread-id <originating-thread-id> --minutes <1-1440>` only after the user requests it. The grant is temporary and task-scoped; it is not implied by service setup.
 
 Never run `loginctl enable-linger`, modify `authorized_keys` or SSH daemon policy or known-host trust, create a dedicated account, load a LaunchAgent, enable or start a unit, or replace a binary unless that exact action appears in the approved plan. Never put a secret in a command argument or service template.
 

@@ -8,7 +8,7 @@ StartLimitBurst=5
 
 [Service]
 Type=exec
-ExecStart=@THREADBEAT_BINARY@ daemon --config @THREADBEAT_CONFIG@
+ExecStart=@THREADBEAT_BINARY@ --config @THREADBEAT_CONFIG@ daemon
 WorkingDirectory=@WORKING_DIRECTORY@
 Restart=on-failure
 RestartSec=10s

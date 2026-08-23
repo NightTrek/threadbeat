@@ -53,9 +53,9 @@ Required behavior:
 2. Prefer a signed prebuilt artifact for a supported target; offer a pinned source build only as an explicit fallback with stated RAM/disk/time requirements.
 3. Support same-host Unix socket or constrained SSH proxy only in v1.
 4. Never start, install, update, or replace Codex app-server implicitly; validate the existing separately managed dependency.
-5. Run `threadbeat service plan` first. Show exact files, permissions, account, binary path, socket, credentials, SSH command, and plan digest.
-6. Apply only the exact user-authorized digest with symlink-safe writes and signed-bundle verification.
-7. Run full `doctor`, including clock trust, storage, OS lock, facade/daemon protocol, app-server initialize, tested-build allowlist, strict queue, originating-task/authority fields, and SSH confinement.
+5. Run `threadbeat --config <path> service plan --destination <service-file> --output <plan.json>` first. Show exact files, permissions, binary and config paths, rendered content, activation/removal commands, and plan digest.
+6. Apply only the exact user-authorized file and digest with `threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>`. Apply writes the service file and does not activate it.
+7. After separately authorized activation, run `threadbeat --config <path> ctl doctor --thread-id <id> --full`, including clock trust, storage, OS lock, facade/daemon protocol, app-server initialize, tested-build allowlist, strict queue, originating-task/authority fields, and SSH confinement.
 8. Create only a disposable/paused smoke automation until Phase-1 and consent gates pass.
 9. On upgrade, drain, preserve ambiguous intents, use an absolute versioned binary, restart/handshake, and retain rollback.
 10. On uninstall, pause schedules, reconcile/cancel exact owned queued items, report uncertainty, stop/disable service, then ask whether to retain or purge state. Warn that plugin-manager removal alone may leave the service running.
@@ -67,17 +67,14 @@ The setup skill must never interpret “install the plugin” as permission to e
 The main setup implementation remains Rust rather than a large shell script:
 
 ```text
-threadbeat service plan --topology unix|ssh
-threadbeat service apply --plan-digest <digest>
-threadbeat service status
-threadbeat service stop
-threadbeat service uninstall
-threadbeat service rollback
-threadbeat doctor --full
-threadbeat schema check
+threadbeat --config <path> service plan --destination <service-file> --output <plan.json>
+threadbeat --config <path> service apply --plan <plan.json> --plan-digest <digest>
+threadbeat --config <path> ctl doctor --thread-id <id> --full
+threadbeat --config <path> ctl authorize --thread-id <id> --minutes 15
+threadbeat --config <path> schema check
 ```
 
-Small signed platform launchers/wrappers are acceptable when packaging requires them, but they do not contain scheduler, credential, protocol, or migration logic.
+The current service CLI intentionally has no start, stop, status, uninstall, or rollback subcommand. Those service-manager actions are planned and authorized separately. Small signed platform launchers/wrappers are acceptable when packaging requires them, but they do not contain scheduler, credential, protocol, or migration logic.
 
 ## Provisional plugin layout
 

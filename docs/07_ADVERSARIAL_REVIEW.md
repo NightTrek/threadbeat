@@ -40,7 +40,7 @@ Disposition: **accepted with a two-mode consent design**.
 - A raw caller-supplied `targetThreadId` cannot grant cross-task access.
 - Cross-task targeting and global administration are CLI-only until a host supplies an authenticated scoped target capability.
 - MCP list/get/runs are scoped to the originating task and service principal.
-- Default activation policy is host-confirmed: active create, run-now, uncertain replay, interruption start, and destructive pending-work deletion require a server-verifiable consent grant delivered by supported host elicitation/approval or recorded by interactive `threadbeat ctl`.
+- Default activation policy is host-confirmed: active create, run-now, uncertain replay, interruption start, and destructive pending-work deletion require a server-verifiable consent grant delivered by supported host elicitation/approval or recorded by interactive `threadbeat --config <path> ctl authorize --thread-id <id> [--minutes <1-1440>]`.
 - A model-set Boolean is never consent.
 - If the host cannot carry a verifiable grant, creation is paused/suggested by default.
 - A personal-use `trusted_agent_current_task` policy may be enabled explicitly during setup. It accepts the host-authorized tool call as consent but remains current-task-only and clearly documents prompt-injection risk.

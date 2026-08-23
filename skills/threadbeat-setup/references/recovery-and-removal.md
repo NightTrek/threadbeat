@@ -2,7 +2,7 @@
 
 ## Recovery
 
-Use read-only status and `doctor --full` before changing configuration. Report clock, storage, OS lock, facade/daemon protocol, app-server reachability, tested-build status, queue capability, blocked runs, and uncertain mutations separately.
+Use read-only service-manager status plus `threadbeat --config <absolute-config-path> ctl doctor --thread-id <originating-thread-id> --full` before changing configuration. Report clock, storage, OS lock, facade/daemon protocol, app-server reachability, tested-build status, queue capability, blocked runs, and uncertain mutations separately.
 
 Do not clear an OS lock, delete a WAL or database, restart repeatedly, or retry an uncertain remote mutation merely to make health green. Preserve evidence and follow the reported recovery action. If rollback is available, drain and handshake before removing the newer binary.
 
