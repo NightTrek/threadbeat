@@ -1,0 +1,23 @@
+# Whitelist for the installable plugin archive. Directory entries end in `/`
+# and expand only to Git-tracked regular files below that prefix.
+.codex-plugin/
+.mcp.json
+ASSETS.md
+CHANGELOG.md
+CONTRIBUTING.md
+Cargo.lock
+Cargo.toml
+LICENSE
+NOTICE
+README.md
+SECURITY.md
+assets/
+config/
+deny.toml
+docs/
+release/
+rust-toolchain.toml
+scripts/
+service/
+skills/
+src/

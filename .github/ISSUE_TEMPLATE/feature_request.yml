@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a bounded product, protocol, or operations improvement.
+title: "proposal: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem should Threadbeat solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Include failure behavior and whether this changes the MCP contract.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Security and Raspberry Pi impact
+      description: Describe new permissions, network/state access, wakeups, memory, CPU, and disk writes.
+    validations:
+      required: true

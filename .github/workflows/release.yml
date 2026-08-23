@@ -1,0 +1,260 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - name: Check out complete source history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release identity
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python3 scripts/check-release-version.py --print-current --require-clean)
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" == "v$version" ]]
+            git rev-parse --verify refs/remotes/origin/main
+            [[ "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" == "tag" ]]
+            [[ "$(git rev-list -n 1 "refs/tags/$GITHUB_REF_NAME")" == "$(git rev-parse refs/remotes/origin/main)" ]]
+          else
+            [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'commit=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt,clippy
+      - name: Validate scripts
+        run: |
+          python3 -c 'import ast,pathlib; [ast.parse(path.read_text(), filename=str(path)) for path in pathlib.Path("scripts").glob("*.py")]'
+          python3 -W error -m unittest discover -s scripts/tests -p 'test_*.py'
+          shellcheck scripts/*.sh
+      - name: Format
+        run: cargo +1.98.0 fmt --all -- --check
+      - name: Lint
+        run: cargo +1.98.0 clippy --all-targets --all-features --locked -- -D warnings
+      - name: Test
+        run: cargo +1.98.0 test --all-targets --all-features --locked
+      - name: Build documentation
+        run: cargo +1.98.0 doc --no-deps --document-private-items --locked
+      - name: Install pinned dependency-policy checker
+        run: cargo +1.98.0 install cargo-deny --version 0.20.2 --locked
+      - name: Audit advisories, licenses, sources, and dependency policy
+        run: cargo +1.98.0 deny check
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+          - target: aarch64-apple-darwin
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --target "${{ matrix.target }}"
+      - name: Build, smoke-test, and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/build-release.sh \
+            "${{ needs.validate.outputs.version }}" \
+            "${{ matrix.target }}" \
+            "$RUNNER_TEMP/threadbeat-dist"
+      - name: Upload target bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bundle-${{ matrix.target }}
+          path: ${{ runner.temp }}/threadbeat-dist/threadbeat-plugin-v${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  verify:
+    needs: [validate, build]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out release verifier
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain for independent graph reconstruction
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - name: Download all target bundles
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          pattern: bundle-*
+          path: dist
+          merge-multiple: true
+      - name: Verify exact release set and generate checksums
+        run: >-
+          python3 scripts/verify-release-set.py
+          "${{ needs.validate.outputs.version }}"
+          dist
+          --expected-commit "${{ needs.validate.outputs.commit }}"
+          --write-checksums
+      - name: Upload verified release files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-files
+          path: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  attest:
+    needs: [validate, verify]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download verified release files
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: release-files
+          path: dist
+      - name: Recheck opaque release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.validate.outputs.version }}"
+          expected=$(printf '%s\n' \
+            SHA256SUMS \
+            "threadbeat-plugin-v${version}-aarch64-apple-darwin.tar.gz" \
+            "threadbeat-plugin-v${version}-aarch64-unknown-linux-gnu.tar.gz" \
+            "threadbeat-plugin-v${version}-x86_64-apple-darwin.tar.gz" \
+            "threadbeat-plugin-v${version}-x86_64-unknown-linux-gnu.tar.gz")
+          actual=$(find dist -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          [[ "$actual" == "$expected" ]]
+          (cd dist && sha256sum --check SHA256SUMS)
+      - name: Generate GitHub artifact attestations
+        id: attest
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - name: Package provenance bundle
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.validate.outputs.version }}"
+          provenance="dist/threadbeat-v${version}-provenance.sigstore.json"
+          cp "$ATTESTATION_BUNDLE" "$provenance"
+      - name: Upload provenance bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: provenance-file
+          path: dist/threadbeat-v${{ needs.validate.outputs.version }}-provenance.sigstore.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [validate, attest]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release files
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: release-files
+          path: dist
+      - name: Download provenance bundle
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: provenance-file
+          path: dist
+      - name: Recheck final release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.validate.outputs.version }}"
+          expected=$(printf '%s\n' \
+            SHA256SUMS \
+            "threadbeat-plugin-v${version}-aarch64-apple-darwin.tar.gz" \
+            "threadbeat-plugin-v${version}-aarch64-unknown-linux-gnu.tar.gz" \
+            "threadbeat-plugin-v${version}-x86_64-apple-darwin.tar.gz" \
+            "threadbeat-plugin-v${version}-x86_64-unknown-linux-gnu.tar.gz" \
+            "threadbeat-v${version}-provenance.sigstore.json")
+          actual=$(find dist -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          [[ "$actual" == "$expected" ]]
+          (cd dist && sha256sum --check SHA256SUMS)
+      - name: Publish non-overwriting prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.validate.outputs.version }}"
+          tag="v${version}"
+          provenance="dist/threadbeat-v${version}-provenance.sigstore.json"
+          notes="$RUNNER_TEMP/release-notes.md"
+          printf '%s\n' \
+            "Threadbeat ${tag} is an alpha prerelease for testing, not a production support claim." \
+            "" \
+            "It includes native Linux and macOS bundles for x86-64 and ARM64. The Linux ARM64 build is Raspberry Pi compatible in architecture, but native Pi soak and resource testing remain open release gates." \
+            "" \
+            "Verify an archive with \`sha256sum --check SHA256SUMS\` and GitHub's artifact-attestation tooling before installation. Each bundle also contains a target-filtered Cargo dependency CycloneDX SBOM, build metadata, dependency license files, and separate Rust/SQLite runtime notices." \
+            > "$notes"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            printf '%s\n' "Refusing to overwrite existing release $tag" >&2
+            exit 1
+          fi
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Threadbeat ${tag}" \
+            --notes-file "$notes" \
+            --draft \
+            --prerelease \
+            dist/*.tar.gz \
+            dist/SHA256SUMS \
+            "$provenance"
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false

@@ -80,7 +80,7 @@ threadbeat/
 └── LICENSE
 ```
 
-Prebuilt, signed and checksummed whole-plugin bundles remain the intended distribution path for Raspberry Pi 64-bit, Linux x86-64, and Apple Silicon/Intel macOS. They have not yet been produced. The current alpha supports a pinned source build, commits `Cargo.lock`, and pins the Rust MCP SDK; native arm64 Pi smoke and soak evidence remains a release gate.
+The repository includes a native four-runner pipeline for checksummed, GitHub-attested whole-plugin archives covering generic ARM64/x86-64 Linux and Apple Silicon/Intel macOS. Only artifacts attached to a successfully completed GitHub prerelease are considered produced. Generic ARM64 CI is not Raspberry Pi hardware evidence; native Pi smoke, resource, and soak validation remains a production gate.
 
 ## MVP target
 
@@ -126,7 +126,7 @@ The current Codex app exposes one direct `codex_app__automation_update` tool; it
 
 The architecture has opinionated defaults. Five decisions are worth resolving before production enablement and distribution:
 
-1. **Name:** `Threadbeat` is selected for the alpha; confirm or change it before signed distribution.
+1. **Name:** `Threadbeat` is selected for the alpha and public repository; any future rename requires a new compatibility and migration decision.
 2. **Experimental dependency:** accept that strict same-thread delivery remains a technical preview until a released Codex build passes the queue crash/semantics matrix and `thread/queue/*` stabilizes.
 3. **Inherited authority:** accept the documented same-task settings race, require dedicated scheduler-owned tasks, or wait for an upstream authority-snapshot API.
 4. **Consent policy:** keep host/CLI-confirmed activation as the secure default, with `trusted_agent_current_task` available only as a setup-time personal-use opt-in.
@@ -142,6 +142,6 @@ Schedule, lifecycle, and daemon-health screenshots remain future release collate
 
 ## Evidence boundary
 
-The design is based on the locally installed Codex `0.149.0-alpha.4.1`, its generated JSON schema, and a source snapshot at `openai/codex` commit `422239eb4b1e0d0f85fac7256a079a1befe78472`. This is insufficient for a release claim. A disposable Phase-1 spike must prove queue persistence, ownership, authority fields, and queue-to-history recovery on an actual released binary; supported production builds then come from a semantic compatibility allowlist, not a method probe alone.
+The design is based on the locally installed Codex `0.149.0-alpha.4.1`, its generated JSON schema, and a source snapshot at `openai/codex` commit `422239eb4b1e0d0f85fac7256a079a1befe78472`. This is insufficient for a production compatibility or support claim. A disposable Phase-1 spike must prove queue persistence, ownership, authority fields, and queue-to-history recovery on an actual released binary; supported production builds then come from a semantic compatibility allowlist, not a method probe alone.
 
 See the remaining documents for requirements, exact tool schemas, failure semantics, threats, budgets, test gates, and primary-source links.

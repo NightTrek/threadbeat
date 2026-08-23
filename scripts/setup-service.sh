@@ -48,11 +48,12 @@ for required in "$config" "$destination" "$plan"; do
   esac
 done
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+repo_dir=$(CDPATH='' cd -- "$script_dir/.." && pwd)
 binary="$repo_dir/bin/threadbeat"
 [ -x "$binary" ] || {
-  printf '%s\n' "Missing $binary; run scripts/build-local.sh first." >&2
+  printf '%s\n' "Missing $binary; reinstall the matching checksum- and attestation-verified bundle." >&2
+  printf '%s\n' "A pinned build via scripts/build-local.sh is a separate source-checkout fallback." >&2
   exit 1
 }
 

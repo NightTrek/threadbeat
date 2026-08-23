@@ -1,0 +1,17 @@
+Threadbeat
+Copyright 2026 NightTrek
+
+This product includes software developed by Threadbeat contributors and
+third-party open source packages identified in each release bundle's
+THIRD_PARTY_LICENSES.md and third-party-licenses/ directory.
+
+The bundled SQLite library is a work dedicated to the public domain by its
+authors. Threadbeat's interoperability design was informed by the Apache-2.0
+licensed OpenAI Codex repository at the commit identified in
+docs/06_RESEARCH_BASELINE.md. Observed product interface names and field
+shapes in that document are factual interoperability information; no OpenAI
+implementation code or product documentation is relicensed by Threadbeat.
+
+Threadbeat is an independent, unofficial project. It is not affiliated with,
+endorsed by, or supported by OpenAI. OpenAI, Codex, and related marks belong
+to their respective owners.

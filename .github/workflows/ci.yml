@@ -9,16 +9,26 @@ permissions:
 
 jobs:
   rust:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt,clippy
+      - name: Validate release metadata and scripts
+        run: |
+          python3 scripts/check-release-version.py --print-current --require-clean
+          python3 -c 'import ast,pathlib; [ast.parse(path.read_text(), filename=str(path)) for path in pathlib.Path("scripts").glob("*.py")]'
+          python3 -W error -m unittest discover -s scripts/tests -p 'test_*.py'
+          shellcheck scripts/*.sh
       - name: Format
         run: cargo +1.98.0 fmt --all -- --check
       - name: Lint
-        run: cargo +1.98.0 clippy --all-targets --locked -- -D warnings
+        run: cargo +1.98.0 clippy --all-targets --all-features --locked -- -D warnings
       - name: Test
-        run: cargo +1.98.0 test --all-targets --locked
+        run: cargo +1.98.0 test --all-targets --all-features --locked
       - name: Release build
         run: cargo +1.98.0 build --release --locked

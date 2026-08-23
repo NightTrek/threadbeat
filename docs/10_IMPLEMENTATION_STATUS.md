@@ -41,7 +41,7 @@ These are release blockers for a production claim, not hidden assumptions:
 4. A daemon crash between a local domain mutation and request-result completion leaves that request key `REQUEST_STATUS_UNCERTAIN`. Replay is deliberately blocked; the operator or agent must inspect automation/run state before using a new key. Full transactional request recovery is future work.
 5. Remote add/delete/start ambiguity is retained as uncertain and never blindly replayed, but bounded queue-plus-history lifecycle reconciliation is not complete.
 6. `automation_doctor` reports database/WAL bytes but does not yet measure filesystem free space or an effective retention horizon.
-7. Signed multi-platform bundles, Raspberry Pi native smoke results, RSS/CPU/write-amplification measurements, and the multi-day Pi soak are not yet produced.
+7. The repository now builds checksum-verified, GitHub-attested generic Linux/macOS x86-64 and ARM64 bundles. Raspberry Pi native smoke results, RSS/CPU/write-amplification measurements, multi-day Pi soak evidence, and any Pi-specific support claim are not yet produced.
 8. Service apply requires the three parent directories (state parent, runtime parent, and platform service-file parent) to exist. It will not create unreviewed ancestors.
 
 ## Comparison with the current Codex app automation tool

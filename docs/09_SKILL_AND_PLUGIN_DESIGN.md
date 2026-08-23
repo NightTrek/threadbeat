@@ -1,6 +1,6 @@
 # Skill and plugin design
 
-Status: implemented alpha package, local binary wrapper, and image assets; signed multi-platform release artifacts remain future work
+Status: implemented alpha package, local binary wrapper, image assets, and four-platform checksum/provenance pipeline; native Pi validation and stronger code-signing remain future work
 
 ## Why two skills
 
@@ -50,7 +50,7 @@ Triggers include:
 Required behavior:
 
 1. Inspect OS, architecture, libc/ABI, service manager, clock synchronization, filesystem, disk, installed Codex version, existing daemon endpoint, and chosen topology.
-2. Prefer a signed prebuilt artifact for a supported target; offer a pinned source build only as an explicit fallback with stated RAM/disk/time requirements, and use `./scripts/build-local.sh` for that local build/package step.
+2. Prefer a checksum- and GitHub-attestation-verified prebuilt artifact for a supported target; offer a pinned source build only as an explicit fallback with stated RAM/disk/time requirements, and use `./scripts/build-local.sh` from a Git source checkout for that local build/package step.
 3. Support same-host Unix socket or constrained SSH proxy only in v1.
 4. Never start, install, update, or replace Codex app-server implicitly; validate the existing separately managed dependency.
 5. Run `threadbeat --config <path> service plan --destination <service-file> --output <plan.json>` first. Show the exact binary/config paths, state/runtime directories and modes, rendered service content and mode, activation/removal commands, and plan digest.
@@ -129,30 +129,34 @@ The binary uses a versioned absolute daemon socket path from installed configura
 
 ## Implemented `.codex-plugin/plugin.json`
 
-The package scaffold uses this asset-free shape:
+The package scaffold uses this manifest:
 
 ```json
 {
   "name": "threadbeat",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "Durable same-task heartbeat scheduling through an existing Codex app-server.",
   "author": {
     "name": "NightTrek"
   },
+  "license": "Apache-2.0",
   "keywords": ["automation", "scheduler", "heartbeat", "codex", "raspberry-pi"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Threadbeat",
     "shortDescription": "Durable heartbeats for Codex tasks",
-    "longDescription": "Schedule durable, serialized follow-ups in the originating Codex task through an existing app-server daemon, with restart catch-up and truthful run status.",
+    "longDescription": "Schedule durable, serialized follow-ups in the originating Codex task through an existing separately managed app-server, with bounded catch-up and truthful run status.",
     "developerName": "NightTrek",
     "category": "Productivity",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo-dark.png",
     "capabilities": [
       "Same-task heartbeats",
       "Weekly and interval schedules",
-      "Durable catch-up and run history",
-      "Raspberry Pi service setup"
+      "Bounded catch-up and run history",
+      "Raspberry Pi and macOS service setup"
     ],
     "defaultPrompt": [
       "Keep working on this every 30 minutes.",
@@ -221,5 +225,5 @@ Screenshots must represent implemented behavior and sanitized realistic data; ge
 2. Evaluate tool-selection scenarios, prompt-injection fixtures, and setup authority boundaries.
 3. Validate plugin paths/manifest and ensure no placeholder or absent asset remains.
 4. Run the MCP conformance/schema snapshots against the selected binary.
-5. Install from the exact signed archive on a clean Pi/macOS account.
+5. Install from the exact checksum- and attestation-verified alpha archive on a clean Pi/macOS account; production packaging additionally requires the planned publisher signature.
 6. Verify service, MCP facade, originating-task scope, paused/confirmed creation, doctor, safe removal, and rollback end to end.

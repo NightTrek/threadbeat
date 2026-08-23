@@ -22,13 +22,13 @@ The current live catalog contains one direct automation tool, not separate creat
 
 `codex_app__automation_update`
 
-### Exact agent-visible description
+### Agent-visible behavior, paraphrased
 
-> Tools provided by the Codex app.
->
-> Create, update, view, or delete recurring automations in the Codex app. The automation prompt is user-visible and may later be replayed as a user message. Write clear, cohesive, human-readable prose. Use this when the user asks for a scheduled task, automation, recurring run, repeated task, reminder, follow-up, monitor, or asks you to watch something, keep an eye on it, check back later, wake up later, notify them, or keep working later. Heartbeat automations are proactive follow-ups attached to the current local thread and are the default for recurring requests. Use a heartbeat unless the user explicitly asks for a new task per run or standalone project work. Cron automations run as standalone local jobs against one project; use list_projects to find its project id. Never write raw automation directives by hand, show raw RRULE strings to the user, or create a workaround cron automation for a thread heartbeat unless the user explicitly asks for that. For requests about existing automations, inspect $CODEX_HOME/automations/*/automation.toml to find matching automation ids by name or prompt. Prefer updating an existing automation over creating a duplicate. For updates, preserve existing fields unless the user asks to change them, and call automation_update with the resolved id and full updated fields. Treat requests such as 'don't notify me' or 'mute this automation' as notificationPolicy=failed_runs_only, and set notificationPolicy=null when the user asks to unmute. Keep notification preferences out of the automation prompt.
+The observed tool creates, suggests, views, updates, and deletes app-managed recurring automations. It recommends current-task heartbeats for recurring follow-ups and reserves project cron jobs for explicitly standalone work. It tells the agent to keep prompts human-readable, avoid exposing raw recurrence rules, inspect existing entries before creating duplicates, preserve unchanged fields during updates, and represent muted notifications with a failed-runs-only policy rather than changing prompt text.
 
-### Exact exposed declaration
+### Observed interoperability declaration
+
+The following field/type shape was independently transcribed from the installed app's agent tool catalog for interoperability comparison. It is factual interface information, not copied implementation code or product documentation, and is not presented as a stable public API.
 
 ```ts
 declare const tools: {

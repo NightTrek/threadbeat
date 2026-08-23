@@ -1,0 +1,49 @@
+name: Bug report
+description: Report reproducible incorrect behavior without private prompts or credentials.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Threadbeat is alpha. Remove task IDs, prompts, paths, tokens, and other private data before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0-alpha.1 or full commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux x86-64
+        - Linux ARM64 / Raspberry Pi
+        - macOS Intel
+        - macOS Apple silicon
+        - Other source build
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Reproduction and observed behavior
+      description: Include minimal sanitized configuration, commands, and logs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed credentials, task IDs, private prompts, and user data.
+          required: true
+        - label: This is not a security vulnerability; I will use private reporting for security issues.
+          required: true

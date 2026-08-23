@@ -349,4 +349,4 @@ Findings and resulting changes will be recorded below rather than erased.
 
 The full independent findings, corrections, dispositions, and no-ship gate are recorded in `07_ADVERSARIAL_REVIEW.md`. The normative clock, occurrence identity, coalescing, remote-mutation, low-disk, retention, and fairness revisions are in `08_STATE_AND_TIME_SEMANTICS.md`.
 
-Verdict at the design gate: proceed with a fail-closed alpha implementation and disposable compatibility/consent/failure-semantics tests. Production delivery, unattended execution, and signed distribution remain blocked until the unresolved classes in `10_IMPLEMENTATION_STATUS.md` have tested solutions or explicitly accepted limitations.
+Verdict at the design gate: proceed with a fail-closed alpha implementation and disposable compatibility/consent/failure-semantics tests. The alpha pipeline provides checksum-verified, GitHub-attested generic platform archives; production delivery, unattended execution, native Pi validation, and any stronger code-signing/notarization claim remain blocked until the unresolved classes in `10_IMPLEMENTATION_STATUS.md` have tested solutions or explicitly accepted limitations.

@@ -4,7 +4,7 @@ These tokens document desired package-time hardening inputs; the current `servic
 
 | Variable | Requirement |
 |---|---|
-| `THREADBEAT_BINARY` | Absolute, versioned, signature-verified executable path; never a mutable PATH lookup. |
+| `THREADBEAT_BINARY` | Absolute, versioned, checksum- and provenance-verified executable path; never a mutable PATH lookup. |
 | `THREADBEAT_CONFIG` | Absolute protected config path containing references, not inline secrets. |
 | `WORKING_DIRECTORY` | Absolute stable directory validated by the plan. |
 | `STATE_DIRECTORY` | Absolute local-filesystem state directory, owned by the service account and mode `0700`. |

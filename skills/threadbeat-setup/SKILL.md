@@ -25,7 +25,7 @@ Read the relevant platform reference before proposing changes:
 
 ## Plan before apply
 
-1. Prefer a signed prebuilt bundle for an explicitly supported target. Offer the pinned source build only as a fallback, with its RAM, disk, toolchain, and time requirements. When that fallback is authorized, build and package the local executable with `./scripts/build-local.sh`; do not substitute an ad hoc source-build command.
+1. Prefer a checksum- and GitHub-attestation-verified prebuilt bundle for an explicitly supported target. Offer the pinned source build only as a fallback, with its RAM, disk, toolchain, and time requirements. When that fallback is authorized in a Git source checkout, build and package the local executable with `./scripts/build-local.sh`; do not substitute an ad hoc source-build command.
 2. Verify that the selected state parent, runtime parent, and platform service-file parent already exist as non-symlink directories; creating any missing parent is a separate reviewed action. Then run `threadbeat --config <absolute-config-path> service plan --destination <absolute-service-file> --output <absolute-plan.json>`. Add `--binary <absolute-versioned-binary>` when the currently running executable is not the intended service binary. Platform selection is automatic; use `--platform systemd-user` or `--platform launchd-agent` only when deliberately overriding it. The JSON plan must show the exact binary, config, state/runtime leaf directories and modes, service file content and mode, activation/removal commands, and digest.
 3. Present the saved plan, its digest, and its side effects. Do not run apply until the user explicitly authorizes that exact plan and digest.
 4. Apply only with `threadbeat --config <absolute-config-path> service apply --plan <absolute-plan.json> --plan-digest <reviewed-digest>`. If the plan changes, stop and present the new digest. Apply reconstructs the canonical plan and creates exactly the configured private state and runtime leaf directories with mode `0700` plus the service definition with mode `0600`; it refuses to create missing parents. It never loads, enables, starts, or bootstraps the service.
@@ -37,6 +37,6 @@ Never run `loginctl enable-linger`, modify `authorized_keys` or SSH daemon polic
 
 ## Upgrade, rollback, and removal
 
-An upgrade must drain work, preserve ambiguous intents, verify the signed bundle, use an absolute versioned binary path, restart and handshake, and keep the prior binary until verification succeeds.
+An upgrade must drain work, preserve ambiguous intents, verify the bundle checksum and GitHub attestation, use an absolute versioned binary path, restart and handshake, and keep the prior binary until verification succeeds.
 
 Before uninstalling, generate a removal plan that pauses schedules, reconciles exact owned remote items, reports uncertainty, stops or disables only the approved service, and asks whether state should be retained or purged. Plugin removal alone may leave the independently managed service running.
