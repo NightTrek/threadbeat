@@ -54,9 +54,9 @@ Each canonical `(weekday, local_time)` has a stable slot ID derived from the nor
 (schedule_id, kind=weekly, slot_id, intended_local_date_time, resolution_ordinal)
 ```
 
-`resolution_ordinal` distinguishes first/second fold occurrences and logical gap resolutions. Resolved UTC time is stored but is not unique identity. Two logical slots that resolve to the same instant remain distinct, then overlap/catch-up policy determines whether both execute or coalesce.
+`resolution_ordinal` distinguishes first/second fold occurrences and logical gap resolutions. Resolved UTC time is also claimed through a universal execution-exclusion key `(schedule_id, resolved_nominal_instant)` that spans revisions and schedule kinds. Two logical slots that resolve to the same instant are recorded in collision metadata but coalesce into one executable run in MVP; the preview warns. This avoids both revision duplicates and ambiguous simultaneous logical slots.
 
-The database has a unique logical-occurrence constraint across revisions. A schedule revision is stored on the row as the immutable payload/config snapshot that won materialization, not as a way to bypass uniqueness.
+The database has both a unique logical-occurrence constraint and the universal resolved-instant exclusion across revisions. A schedule revision is stored on the row as the immutable payload/config snapshot that won materialization, not as a way to bypass uniqueness.
 
 ## Revision cutover
 
@@ -146,11 +146,15 @@ The public tool view maps implementation-only claim/intent states to `delivering
 | Add reply | ownership tuple matches | persist remote ID/time | `REMOTE_QUEUED` |
 | Add transport failure after send may have begun | intent exists | no retry | `DELIVERY_UNCERTAIN` pending reconciliation |
 | Queue row missing | search bounded queue/history | persist evidence | `STARTED`, terminal, or uncertain |
+| Zero ownership matches | inspect transport certainty and bounded history | record evidence, no mutation | absent if never sent; otherwise uncertain |
+| Multiple otherwise matching rows | multiplicity is not producer authentication | record sanitized evidence, stop | `REMOTE_OWNERSHIP_VIOLATION`/uncertain |
 | External row input/ID mismatch | owned tuple fails | record sanitized evidence, stop | `REMOTE_OWNERSHIP_VIOLATION` |
 | Start blocked run | exact owned row is head, task idle, no blocker, authority matches, human grant | record `START_INTENT` | one exact-ID start, never omitted-ID start |
 | Ambiguous start | start frame may have committed | no retry | reconcile; otherwise `DELIVERY_UNCERTAIN` |
 | Cancel remote queued | exact owned row, authorized, not started | record `DELETE_INTENT` | delete then reconcile |
 | Delete reply lost | intent exists | no retry until list/history reconciliation | cancelled, too late, or uncertain |
+| Explicit retry | original is retryable, exact consent grant, new request key | create immutable child with fresh random client ID and `retryOfRunId` | child `DUE`; original unchanged |
+| Manual run-now | current revision/authority and exact consent grant | create nonce/request-key-bound logical child | `DUE` |
 | Turn begins | correlated `userMessage.clientId` plus digest/target evidence | store turn ID/start time | `STARTED` |
 | Approval/input flag | correlated task/turn | store blocker only | waiting state; never answer |
 | Turn terminal | authoritative terminal event/history | store bounded status/error | `SUCCEEDED` or `TURN_FAILED` |
@@ -158,14 +162,15 @@ The public tool view maps implementation-only claim/intent states to `delivering
 | Task closes/disappears | authoritative response/event | stop remote work | `TASK_CLOSED` |
 | Disk/DB unhealthy | any pre-send state | enter no-new-mutations mode | local blocked state; no network send |
 
-No remote mutation is automatically retried after a write may have begun. Every add/update/delete/start has its own intent and reconciliation method.
+No remote mutation is automatically retried after a write may have begun. Every add, exact-owned delete, and exact-ID start has its own intent and reconciliation method. Threadbeat does not use remote queue update in MVP; schedule edits leave already queued input immutable.
 
 ## Shared queue ownership and fairness
 
 - One Threadbeat-owned remote queued row per target task, regardless of schedule count.
 - Local fair ordering is oldest eligible nominal time, with round-robin protection between schedules and stable ID tie-breaks.
 - Observe remote queue depth before add. Initial conservative test threshold is 80 of 100; above it, keep work local. The final threshold is based on mixed-client tests.
-- Never update, delete, start, or classify a row as owned from client ID alone.
+- Never update, delete, start, or classify a row as owned from client ID alone. Threadbeat does not use remote update at all.
+- Zero, multiple, or mismatched candidate rows are never authoritative success; a digest detects equality/tampering but does not authenticate the producer.
 - Never reorder the shared queue.
 - An external deletion/update/reorder of an owned row triggers reconciliation or ownership violation; it is not silently repaired.
 - `thread/queue/start` is always called with the exact owned submission ID, never with `null`/omitted ID.

@@ -10,6 +10,24 @@ Reviewers:
 
 Both independent reviewers read the full initial packet and returned **NO-SHIP for full MVP implementation**. They allow only a bounded, disposable Phase-1 compatibility/failure-semantics spike plus isolated pure schedule/database prototypes. The original proposal remains visible in Git history at `78889fe`; remediation is a follow-up rather than a rewritten review record.
 
+## Product manager versus software architect debate
+
+Before the independent reviews, the product and architecture roles were explicitly asked to challenge each other. Their material disagreements and resolution were:
+
+| Question | Initial product position | Architecture challenge | Resolution before/after adversarial review |
+|---|---|---|---|
+| Meaning of “every 30 minutes” | Initially completion-relative to avoid backlog | Users expect a fixed wall-time grid; completion-relative silently drifts | PM reversed: anchored fixed-rate is default; `fixedDelay` may be a separate future type. |
+| Delivery path | Direct turn start was initially considered | `turn/start` can steer into an active turn; only current queue path has idle-atomic admission | Strict mode requires capability-gated `thread/queue/*`; no silent direct fallback. |
+| One queue or two | Scheduler queue was the main product abstraction | App-server already has a durable per-task delivery queue, but no calendar semantics | Two named queues: Threadbeat owns time/occurrences; app-server owns due-prompt admission. |
+| Missed intervals | Replay could preserve every nominal event | A Pi restart or long run can produce a storm | Default heartbeat coalesces to one latest catch-up within 24 hours; `all` is bounded/advanced. |
+| Tool count | First draft proposed many CRUD operations, then one polymorphic mutation tool for parity | A small catalog helps selection, but reads/diagnostics deserve their own shape | PM chose one mutation plus reads; security then split preview and risky run control because MCP annotations cannot vary by union arm. Final proposal has seven tools. |
+| Confirmation | Universal two-phase confirmation was considered | Clear reversible schedule requests should not require ceremony | PM dropped universal confirmation; security review replaced ceremony with a real policy: host/CLI-verifiable grants by default, with explicit current-task trusted-agent opt-in. |
+| Stable fallback | A read-then-start fallback looked possible | It is a TOCTOU race and can steer into human work | Best-effort direct mode is not exposed in MVP. |
+| Exactly once | Desired as a scheduler quality goal | Upstream add is non-idempotent and queue-to-history handoff has a crash gap | Advertise durable, reconciled, duplicate-resistant delivery only; uncertainty stops replay. |
+| Resource targets | Tight Pi targets should be product requirements | Dependency and storage costs are not yet measured | Keep targets as test gates, not promises; Phase 1/7 measure and revise honestly. |
+
+The largest unresolved product/architecture tradeoff is now authority, not recurrence: same-task continuity inherits mutable task settings, while dedicated scheduler-owned tasks are safer but do not satisfy the desired default experience.
+
 ## Blockers and disposition
 
 ### B1: no enforceable caller/task authorization boundary
@@ -18,7 +36,7 @@ Finding: any MCP caller could supply an arbitrary target task, globally read sch
 
 Disposition: **accepted with a two-mode consent design**.
 
-- MCP v1 is scoped to the authenticated originating task from `_meta.threadId`.
+- MCP v1 must be scoped to a Phase-1-proven host-validated originating task from `_meta.threadId`; until then it is a candidate binding, not an established fact.
 - A raw caller-supplied `targetThreadId` cannot grant cross-task access.
 - Cross-task targeting and global administration are CLI-only until a host supplies an authenticated scoped target capability.
 - MCP list/get/runs are scoped to the originating task and service principal.
@@ -170,7 +188,7 @@ Purge, cross-task/global administration, endpoint/profile changes, service chang
 ## Required Phase-1 spikes
 
 1. Released app-server kill-point and history-correlation matrix.
-2. Mixed-client shared-queue ownership, interruption, exact-ID start, update/delete/start ambiguity, and race matrix.
+2. Mixed-client shared-queue ownership, interruption, exact-ID start, external update/tampering, delete/start ambiguity, duplicate-match, and race matrix. Threadbeat does not use remote queue update in MVP.
 3. Effective authority-field completeness, change observation, auto-review behavior, and check-to-start race measurement.
 4. MCP host identity, `_meta.threadId`, elicitation/approval, and server-verifiable consent mechanisms.
 5. Native Pi clock-trust campaign.
@@ -179,6 +197,27 @@ Purge, cross-task/global administration, endpoint/profile changes, service chang
 8. Dependency/resource spike and minimum supported Pi ABI decision.
 9. Secure SSH forced-command/proxy validation.
 10. Plugin/service removal behavior and availability of pre-removal hooks.
+
+## Closure review after remediation
+
+Both adversaries re-read the revised packet.
+
+Security closure:
+
+- caller/task authorization: **partially closed**, pending proof that the host can integrity-bind `_meta.threadId` and issue a server-verifiable consent grant;
+- inherited authority drift: **open**, because current queue items do not atomically carry an authority snapshot;
+- shared-queue ownership: **partially closed**, with random IDs/digests/exact-ID operations specified but duplicate identical rows and released behavior still requiring tests;
+- unsafe tool semantics, request-key privacy, and supply-chain design: **closed in design**;
+- prompt at-rest exposure, SSH confinement, removal hooks, resource ceilings, and remote-mutation recovery: **partially closed/pending evidence**.
+
+Reliability closure:
+
+- stale leader fencing: **closed in design** by lifetime OS lock plus generation quarantine;
+- per-task capacity/fairness, coalescing, app-server uptime boundary, retention, and local control-version skew: **closed in design**;
+- interruption, clock trust, state machine, low-disk behavior, latency, and occurrence identity: **partially closed/pending native or released-binary evidence**;
+- queue-to-history recovery, semantic build support, and minimum Linux ABI: **open gates**.
+
+The closure pass also found and this revision fixes several contradictions: `_meta.threadId` is now called a candidate binding until proven; duplicate matching rows are never authoritative; remote queue update is removed from MVP rather than left without an intent state; public lifecycle vocabulary is centralized in the tool contract; retry uses a verifiable consent grant rather than an acknowledgment Boolean; v1 SSH requires a constrained forced-command account/key; cross-revision execution uses a universal resolved-instant exclusion; and database recovery orders integrity check/backup before migration.
 
 ## Gate verdict
 

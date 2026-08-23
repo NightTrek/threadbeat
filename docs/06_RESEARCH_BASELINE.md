@@ -12,7 +12,7 @@ This document separates directly observed local behavior, official documentation
 - `codex app-server --help` exposes stdio, Unix-socket, TCP WebSocket, daemon/control, proxy, and schema-generation paths.
 - The local machine’s default app-server control socket was not running during research; no inference about the user’s separate SSH-hosted daemon is made from that absence.
 
-Runtime compatibility will be determined by live initialize/capability probes against the configured daemon, not this snapshot.
+Runtime compatibility requires both a semantic allowlist entry from released-binary crash/mixed-client testing and a live initialize/capability probe against the configured daemon; neither this snapshot nor method presence is sufficient.
 
 ## Current Codex agent-visible automation tool
 
@@ -212,6 +212,8 @@ The [official app-server documentation](https://learn.chatgpt.com/docs/app-serve
 - generated TypeScript/JSON schemas match the exact binary that emitted them; and
 - bounded server queues can return `-32001`, which callers retry with exponential backoff and jitter.
 
+The tested CLI help advertises `ws://` listeners and app-server authentication modes, not a native `wss://` listener. Direct TLS would require another terminator/proxy and its own security design, so v1 uses same-host Unix socket or SSH-proxied loopback only.
+
 App-server messages are JSON-RPC-like but omit the normal `jsonrpc` member. An MCP SDK is therefore not an app-server client SDK.
 
 There is no stable, current external Rust app-server network SDK. The in-repository app-server client/protocol crates are internal/path-oriented, and the public protocol crate version lags the installed 0.149-era binary. The design uses a small pinned client and generated DTO fixtures instead.
@@ -248,6 +250,8 @@ Source inspection further shows:
 - `clientUserMessageId` required on add and later visible as `userMessage.clientId`; and
 - server-generated queue UUID on every insert.
 
+`thread/queue/start` accepts an optional `queuedSubmissionId`. Current source selects that exact item when supplied—even if it is not the head—or the first queue item when omitted. Threadbeat must therefore always supply an exact owned ID, normally require it to be the head to preserve shared FIFO, and never use omitted-ID start. This is current-source behavior that requires released-binary testing.
+
 Relevant sources:
 
 - [queue persistence setup](https://github.com/openai/codex/blob/422239eb4b1e0d0f85fac7256a079a1befe78472/codex-rs/app-server/src/message_processor.rs#L290-L320)
@@ -257,7 +261,7 @@ Relevant sources:
 
 ### Non-idempotent insertion
 
-`clientUserMessageId` is carried through but is not a uniqueness constraint. Every queue add allocates a fresh row ID. A network response can be lost after commit, so a blind retry can duplicate a prompt. This is why Threadbeat needs its own durable outbox and the `delivery_uncertain` state.
+`clientUserMessageId` is carried through but is not a uniqueness constraint or ownership proof. Every queue add allocates a fresh row ID, and other app-server clients can observe/update/delete shared rows. A network response can be lost after commit, so a blind retry can duplicate a prompt. This is why Threadbeat needs a durable mutation outbox, a random persisted client ID, exact input digest/target checks, and the `delivery_uncertain`/ownership-violation states.
 
 ### Queue persistence boundary
 
@@ -277,11 +281,11 @@ Current Codex source injects the originating task as `_meta.threadId` in MCP cal
 - [injection helper](https://github.com/openai/codex/blob/422239eb4b1e0d0f85fac7256a079a1befe78472/codex-rs/core/src/mcp_tool_call.rs#L1227-L1245)
 - [behavior test](https://github.com/openai/codex/blob/422239eb4b1e0d0f85fac7256a079a1befe78472/codex-rs/core/src/mcp_tool_call_tests.rs#L1532-L1551)
 
-This is a Codex-specific extension, not standard MCP. The tool contract uses it as the convenient default but always accepts explicit `targetThreadId` and fails rather than guessing when both are absent.
+This is a Codex-specific extension, not standard MCP. Source injection proves presence, not that an external MCP server can treat the value as an authenticated user-intent boundary. The security-revised contract makes host validation a Phase-1 gate. A raw explicit `targetThreadId` cannot expand scope; cross-task work uses an interactive CLI or a future authenticated target capability. If the binding is absent/unvalidated, MCP fails rather than guessing.
 
 ## Approval behavior
 
-App-server can replay pending server requests when a client resumes a task, and task status exposes active approval/user-input flags. Threadbeat can therefore observe and report a blocker without inventing a response. The scheduled queue payload does not carry ordinary per-turn sandbox/approval/model/cwd overrides, so work inherits the task’s current settings.
+App-server can replay pending server requests when a client resumes a task, and task status exposes active approval/user-input flags. `thread/resume` also exposes effective task settings such as cwd, sandbox, approval policy/reviewer, and permission profile in the tested schema; the reviewer enum includes `auto_review`. Threadbeat can therefore observe and report a blocker and compare a stored authority fingerprint without inventing a response. The actual unattended behavior of every reviewer/policy combination still needs live testing. The scheduled queue payload does not carry a per-turn authority snapshot, so work inherits the task’s then-current settings and a settings-check-to-start race remains.
 
 The design implication is explicit: same-task continuity and reproducible isolated execution are not identical. Threadbeat chooses continuity by default because that is the product request, while never broadening authority.
 
@@ -300,6 +304,6 @@ The likely lean topology is one Tokio runtime, one SQLite actor thread, one pers
 5. The current task queue closely fits the requirement but is experimental.
 6. Direct `turn/start` cannot supply strict same-task non-overlap.
 7. Remote insertion is duplicate-resistant, not exactly once.
-8. Heartbeat targeting can default from `_meta.threadId`, but explicit targeting remains required as a compatibility fallback.
+8. Heartbeat MCP targeting is intended to bind to `_meta.threadId`, but host integrity must be proven in Phase 1; cross-task fallback belongs to the interactive CLI or a future authenticated capability.
 9. Fixed-rate intervals best match “every 30 minutes”; completion-relative timing must be a separate future schedule type.
 10. Prebuilt Pi binaries remove the need to compile Rust on every device, while native tests remain essential.

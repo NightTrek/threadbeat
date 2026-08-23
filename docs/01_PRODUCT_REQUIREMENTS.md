@@ -1,6 +1,6 @@
 # Product requirements
 
-Status: proposed MVP requirements
+Status: revised requirements; persistent MVP implementation is gated on the Phase-1 evidence in the adversarial review
 
 ## Product statement
 
@@ -53,13 +53,13 @@ A technical Codex user who keeps a Codex app-server running locally or on a remo
 1. The user gives weekdays and one or more local times.
 2. If timezone is not reliably available from configured context, the agent asks for it once.
 3. The preview returns the exact weekday/time Cartesian product, upcoming UTC instants, and DST policy.
-4. An explicit scheduling request can be created active in one tool call; preview is required only for material ambiguity.
+4. It is created active when the configured host/CLI consent policy is satisfied; otherwise it is saved paused with an exact approval path.
 
 ### Restart after missed work
 
 1. The daemon starts, validates its SQLite database, and calculates missed nominal occurrences.
 2. For a heartbeat, it creates at most one coalesced catch-up if the newest miss is no more than 24 hours old.
-3. It reconciles the deterministic client message ID against the app-server queue and task history before making a network mutation.
+3. It reconciles the persisted random client ID, exact input digest, target, and any known remote ID against the app-server queue and bounded task history before making a network mutation.
 4. It never produces a restart replay storm.
 
 ### Encounter an approval or interruption
@@ -67,7 +67,7 @@ A technical Codex user who keeps a Codex app-server running locally or on a remo
 1. A turn requests approval, user input, or is interrupted.
 2. Threadbeat records `needs_attention` or `interrupted`, does not answer on the user’s behalf, and prevents additional heartbeats from piling up.
 3. Later due occurrences coalesce.
-4. The user explicitly resumes or resolves the task; Threadbeat then continues without shifting the original interval anchor.
+4. The user resolves the task. An exact blocked run may be started only through the consent/ownership/head checks; Threadbeat then continues without shifting the original interval anchor.
 
 ### Inspect or change an automation
 
@@ -75,11 +75,22 @@ The user can list schedules, read normalized configuration and next run, see lif
 
 ## Functional requirements
 
+### FR-0: caller scope and consent
+
+- MCP operations must be scoped to a validated service principal and originating Codex task; Phase 1 must prove the host can supply that integrity boundary.
+- `_meta.threadId` is the target binding, not a convenience that a raw argument may override.
+- Cross-task targeting and global administration are CLI-only unless the host supplies an authenticated scoped target capability.
+- Active creation, run-now, uncertain retry, blocked-run start, and destructive pending-work cancellation require a server-verifiable host/CLI consent grant under the default policy.
+- If no supported human-routed grant mechanism exists, MCP creates a paused/suggested automation.
+- A setup-time `trusted_agent_current_task` policy may accept agent tool calls as authorization only for the originating task; its prompt-injection risk is explicit.
+- Names, prompts, titles, and errors returned by tools are untrusted data, never administrative instructions.
+
 ### FR-1: same-task targeting
 
 - `heartbeat` is the default automation kind.
-- The target comes from explicit `targetThreadId`; otherwise from Codex’s `_meta.threadId` extension.
-- If neither is present, creation fails with an actionable request for a task ID. Recent-task guessing is forbidden.
+- The intended MCP target comes from a host-validated Codex `_meta.threadId` extension; until Phase 1 proves its authenticity, mutations remain blocked/paused.
+- A caller-supplied raw task ID cannot expand scope. A daemon-issued/host-authenticated target capability may be added later.
+- If the originating-task binding is absent, MCP creation fails and directs the user to the scoped CLI flow. Recent-task guessing is forbidden.
 - The resolved target ID is returned and stored.
 
 ### FR-2: schedule types
@@ -110,32 +121,39 @@ MVP supports a closed tagged union:
 
 ### FR-5: durable occurrence ledger
 
-- Every occurrence has a deterministic identity derived from schedule ID, schedule revision, and nominal UTC due time.
+- Every logical occurrence has a stable identity that survives revision cutover and distinguishes weekly slot, intended local datetime, and DST resolution ordinal; resolved UTC alone is not identity.
+- Each occurrence receives a cryptographically random persisted client message ID before network I/O.
 - Schedule mutation, occurrence creation, delivery intent, remote acknowledgment, lifecycle timestamps, and terminal outcome are durable.
-- A unique database constraint prevents duplicate nominal occurrences.
-- A single daemon is the scheduler leader and SQLite writer.
+- A unique database constraint prevents duplicate logical occurrences across revisions.
+- A universal per-schedule resolved-instant claim spans revisions/kinds; multiple logical weekly slots resolving to one instant are warned and coalesced into one executable MVP run.
+- A single daemon holds an exclusive local-filesystem OS lock and is the scheduler leader/SQLite writer; shared/network database filesystems are unsupported.
 
 ### FR-6: strict delivery
 
 - Normal delivery uses capability-gated `thread/queue/add` on the existing app-server.
 - Only due work enters the app-server queue; future work remains local.
-- At most one remote-pending heartbeat per schedule is allowed.
+- At most one Threadbeat-owned remote-pending item per target task is allowed.
 - All schedules targeting a task share a serialized admission lane.
+- Threadbeat never reorders the shared task queue and only mutates exact rows whose complete ownership tuple matches.
 - If the strict queue capability is unavailable or disappears, strict schedules pause and diagnostics explain why.
 - A racy direct `turn/start` mode is not silently substituted.
+- Runtime support requires a semantically tested released-build allowlist; an unknown build is blocked or explicit preview-only, even if the methods exist.
 
 ### FR-7: duplicate resistance
 
-- The deterministic occurrence identity is also represented as a stable `clientUserMessageId`.
-- Before every queue mutation, Threadbeat checks the remote queue and recent task history for that ID.
+- A random persisted `clientUserMessageId`, canonical input digest, target, occurrence, and known remote submission ID form the ownership tuple.
+- Before every queue mutation, Threadbeat checks the remote queue and bounded task history for the full tuple.
 - A response lost after remote acceptance triggers reconciliation, not a blind retry.
 - If neither queue nor history proves the outcome after a bounded grace period, state becomes `delivery_uncertain` and automatic replay stops.
+- Add, exact-owned delete, and exact-ID start each have a durable mutation intent and their own ambiguity procedure. Remote queue update is not used in MVP; edits never rewrite already queued input.
+- An input/client-ID mismatch is `remote_ownership_violation`, never accepted as success.
+- Zero matches remain absent/uncertain according to transport evidence; multiple otherwise matching rows are always ownership ambiguity/violation, never authoritative success.
 - Documentation says “durable and duplicate-resistant,” not “exactly once.”
 
 ### FR-8: catch-up and overlap
 
 - Heartbeat default is `coalesce`, `maxAge=24h`, `maxRuns=1`.
-- No occurrence is sent before its nominal due instant.
+- No occurrence is materialized as due or sent until the Pi clock is trusted and the nominal due instant has passed.
 - If a previous turn is running or remotely queued, new due slots coalesce into one catch-up marker.
 - A catch-up does not move the fixed-rate anchor.
 - `skip` and bounded `all` are supported advanced policies; `all` has both age and count caps.
@@ -150,13 +168,21 @@ The product distinguishes:
 - `delivering`
 - `thread_queued`
 - `running`
-- `needs_attention`
+- `waiting_approval`
+- `waiting_user_input`
 - `succeeded`
-- `failed`
+- `turn_failed`
+- `delivery_failed`
 - `interrupted`
+- `authority_changed`
+- `remote_ownership_violation`
+- `task_closed`
 - `cancelled`
 - `coalesced`
 - `delivery_uncertain`
+- `superseded`
+- `expired`
+- `skipped`
 
 It never says a run started merely because queue insertion succeeded. Each record may include `nominalDueAt`, `enqueuedAt`, `startedAt`, `completedAt`, `dispatchLagMs`, and `startLagMs`.
 
@@ -164,8 +190,10 @@ It never says a run started merely because queue insertion succeeded. Each recor
 
 - Threadbeat never answers app-server approval or user-input requests.
 - Queued turns inherit the target task’s current model, working directory, sandbox, and approval settings; this constraint is disclosed at creation and status.
-- No schedule creation broadens authority.
-- Creation warns or refuses if the configured task cannot safely operate unattended under the chosen policy.
+- Activation stores an authorized fingerprint of effective cwd, sandbox, approval policy/reviewer, permission profile/provenance, and exposed instruction identity.
+- Threadbeat compares current settings before add/start and pauses as `authority_changed` when fields are missing or differ.
+- `approvalsReviewer=auto_review` is refused for unattended work unless human consent is bound to that exact fingerprint.
+- The current queue cannot atomically bind a prompt to an authority snapshot; a settings-change race while remotely queued remains an explicit product limitation, not a solved guarantee.
 - Endpoint, auth, and credential configuration are CLI/setup concerns, never MCP arguments.
 
 ### FR-11: service lifecycle
@@ -174,22 +202,28 @@ It never says a run started merely because queue insertion succeeded. Each recor
 - macOS setup supports a per-user LaunchAgent.
 - The daemon remains in the foreground and lets the service manager own restarts.
 - Setup discovers and validates the existing app-server but does not launch or install it by default.
+- Threadbeat promises to retain work and reconnect after that separately managed dependency returns; it does not promise app-server uptime or boot ordering.
 - Install, upgrade, service removal, credential changes, and remote exposure require explicit user authorization.
 
 ### FR-12: distribution
 
-- Signed/checksummed release artifacts target `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, and `x86_64-apple-darwin` initially.
+- Signed/checksummed whole-plugin release artifacts target `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, and `x86_64-apple-darwin` initially.
 - A source-build path with a pinned MSRV is available.
 - The release binary records the Codex version/schema digest against which it was tested.
-- The exact runtime is capability-probed; version strings alone do not enable a backend.
+- The exact runtime is capability-probed and must appear in a semantic test allowlist; version strings or method presence alone do not enable strict delivery.
+- The minimum Pi model/OS/glibc/filesystem matrix is frozen after the dependency spike and tested natively on its oldest member.
 
 ### FR-13: observability and privacy
 
 - Logs are structured and redact prompt bodies, tokens, raw auth headers, and full sensitive error payloads by default.
 - Status exposes connectivity, queue capability, database health, scheduler lag, clock warning, blocked count, and uncertain count.
-- Prompt text is stored because replay requires it; file permissions and full-disk encryption are part of the privacy boundary.
+- Prompt text is stored because replay requires it; MCP reads return a hash, byte length, and redacted preview by default.
+- Full prompt access is a separately scoped sensitive operation; global prompt reads are CLI-only.
+- Sensitive deployments may use envelope encryption with an independently protected key; a key on the same unencrypted SD card is not theft protection.
 - Result bodies are not duplicated into Threadbeat’s database in MVP; IDs, timestamps, status, and a bounded error summary are enough.
-- Retention and compaction are bounded and configurable.
+- Request-key rows contain only versioned request hashes and stable IDs, not full prompts/results.
+- Prompt, soft-delete, WAL/backup, request-key, audit, and run retention are bounded by both age and bytes; `doctor` reports the effective window.
+- Core dumps are disabled and panic/support paths are redaction-tested.
 
 ## Quality attributes and acceptance criteria
 
@@ -197,14 +231,15 @@ It never says a run started merely because queue insertion succeeded. Each recor
 
 - Property tests show no interval drift across retries, long runs, restarts, or clock corrections.
 - DST tests cover gaps, folds, leap years, and a 30-minute transition zone.
-- Crash-injection tests at every state transition never create two local occurrences for the same nominal slot.
+- Crash-injection tests at every state transition never create two local occurrences for the same logical slot across revisions.
 - Lost-response integration tests never auto-send a second remote prompt without evidence or explicit retry.
+- Mixed-client tests never classify or mutate another producer’s queue row as owned.
 
 ### Reliability
 
 - A Pi reboot with missed schedules produces the documented bounded catch-up.
-- Network and app-server restarts recover without operator action unless state is uncertain, interrupted, incompatible, or waiting for approval.
-- A seven-day pre-release soak has no growing memory, file descriptor, task, queue, or SQLite WAL count.
+- After the separately managed app-server returns, network/app-server restarts recover without operator action unless state is uncertain, interrupted, incompatible, authority-changed, clock-quarantined, storage-unhealthy, or waiting for approval/input.
+- A seven-day pre-release soak has no growing memory, file descriptor, task, queue, WAL byte trend, or checkpoint backlog.
 
 ### Performance budget
 
@@ -213,12 +248,14 @@ It never says a run started merely because queue insertion succeeded. Each recor
 - Scheduler wakeups: one global timer plus health/reconnect activity, not one timer per automation.
 - Default database architecture: one connection actor, WAL, bounded retention, and no polling scan of full task history.
 - SD-card write amplification is measured during a 30-day-equivalent workload before release.
+- Candidate latency gates include p95 local due-to-intent ≤1 second when trusted/connected/idle and bounded startup/reconnect/burst recovery; they become promises only after native Pi measurement.
 
 These are budgets to validate, not unmeasured promises.
 
 ### Security
 
 - Local daemon control socket is `0600` in a private runtime directory.
+- Peer UID, socket inode/type/owner, and parent-directory ownership are verified; same-UID compromise is treated as full compromise unless a dedicated account is used.
 - No unauthenticated non-loopback listener passes acceptance.
 - Secrets never appear in process arguments, world-readable files, MCP output, or default logs.
 - Service hardening and dependency/security scans pass the release gate.

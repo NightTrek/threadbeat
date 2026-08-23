@@ -1,6 +1,6 @@
 # Security, privacy, performance, and reliability review
 
-Status: initial design controls; independent adversarial findings will be appended before approval
+Status: revised after independent adversarial review; full MVP remains blocked pending Phase-1 evidence
 
 ## Security posture
 
@@ -15,6 +15,7 @@ Threadbeat is a local automation control plane. Its most important risk is not a
 - Occurrence/run history, errors, and correlation IDs.
 - The daemon binary, plugin manifest, service definition, and update channel.
 - Availability and integrity of the scheduler clock and SQLite database.
+- Model/API usage, external side effects, and availability/fairness of the shared task queue.
 
 ## Trust boundaries
 
@@ -25,7 +26,7 @@ user conversation
 Codex agent -- MCP stdio --> MCP facade -- private UDS --> scheduler daemon
                                                        |
                                                        v
-                                             SSH/UDS/WSS boundary
+                                              SSH/UDS boundary
                                                        |
                                                        v
                                              Codex app-server/task
@@ -34,7 +35,7 @@ Codex agent -- MCP stdio --> MCP facade -- private UDS --> scheduler daemon
 - MCP arguments are untrusted, even if produced by an agent.
 - Stored names, prompts, and errors are untrusted data when returned to a later agent.
 - Processes owned by another OS user are outside the local trust boundary.
-- Other processes owned by the same OS user are partially trusted; Unix mode bits alone cannot isolate them completely.
+- A compromised process under the same OS user is treated as full Threadbeat compromise; Unix mode bits cannot isolate same-UID peers. A dedicated service account is the stronger boundary.
 - The app-server is an external versioned dependency, not an in-process library.
 - The target task’s current model/sandbox/approval configuration is mutable external state.
 
@@ -47,7 +48,9 @@ Risk: a misleading prompt or tool-selection error creates recurring unattended w
 Controls:
 
 - agent-visible description says the prompt is replayed later and creation is persistent;
-- only an explicit scheduling request is created active without preview;
+- MCP must be scoped to a host-validated originating task; Phase 1 must prove the binding, and cross-task/global work remains CLI-only;
+- active/risky operations use a server-verifiable host/CLI grant under the default policy;
+- without a supported grant, creation is suggested/paused unless the user explicitly enabled current-task trusted-agent mode during setup;
 - ambiguous target, cadence, timezone, or authority requires preview/user resolution;
 - create is reversible, visible, revisioned, and immediately returns exact next run;
 - local quotas and rate limits prevent mass creation;
@@ -61,6 +64,8 @@ Controls:
 
 - no MCP field for sandbox, approval policy, endpoint, credential, service unit, command, or environment;
 - queued work inherits but never edits task settings;
+- activation records an authority fingerprint and add/start recheck effective settings;
+- missing/drifted fields pause delivery, and unapproved `auto_review` is refused;
 - server-initiated approval/user-input requests are observed and surfaced, never answered;
 - unsafe/unattended task configurations warn or fail per policy;
 - service install and credential/network changes remain explicit CLI/setup operations.
@@ -85,7 +90,7 @@ Controls:
 
 - profiles/endpoints/secret references cannot be supplied through MCP;
 - configuration accepts a small endpoint-kind union and validates loopback/Unix paths;
-- remote direct mode requires WSS, certificate validation, and app-server auth;
+- direct remote network mode is rejected in v1; use a constrained SSH proxy;
 - SSH destinations are installed configuration, not per-call strings;
 - diagnostics show a sanitized endpoint kind, never credentials.
 
@@ -97,7 +102,7 @@ Controls:
 
 - bundled MCP is stdio, not a listening socket;
 - daemon control is a Unix socket inside a private runtime directory, mode `0600`;
-- verify peer UID on supported platforms;
+- verify peer UID, socket inode type/owner, and every parent directory; reject symlink/path substitution;
 - no default TCP MCP listener;
 - same-host app-server uses its Unix socket;
 - remote app-server uses SSH loopback by default;
@@ -111,12 +116,13 @@ Risk: connection loss after `thread/queue/add` causes a blind retry and duplicat
 
 Controls:
 
-- deterministic local occurrence and `clientUserMessageId`;
+- stable logical occurrence plus cryptographically random persisted `clientUserMessageId`;
+- ownership requires target, canonical input digest, occurrence, client ID, and known remote submission ID—not the ID alone;
 - outbox state committed before network mutation;
-- queue and task-history reconciliation before every retry;
+- durable mutation intent and queue/task-history reconciliation for add, exact-owned delete, and exact-ID start; remote queue update is unused;
 - uncertain state after bounded inconclusive reconciliation;
 - automatic replay disabled for uncertain delivery;
-- explicit retry requires acknowledgment of duplicate risk.
+- explicit retry requires a server-verifiable human consent grant bound to the exact retry; a model Boolean is insufficient.
 
 ### T7: protocol downgrade or drift
 
@@ -126,6 +132,7 @@ Controls:
 
 - initialize and capability probe every connection;
 - exact generated schema fixtures in the compatibility matrix;
+- a semantic allowlist of released binaries that passed the mixed-client/crash matrix; method presence alone is insufficient;
 - strict schedules pause on lost capability;
 - no silent adapter downgrade;
 - required identifiers/states fail closed;
@@ -140,9 +147,12 @@ Controls:
 - exact dependency pins and committed `Cargo.lock`;
 - `cargo build --locked` and no git dependencies for release;
 - cargo-deny and RustSec checks; cargo-vet for a higher-assurance release channel;
-- SBOM, checksums, signatures, provenance, and pinned CI/cross-build images;
-- installer verifies artifacts before replacement;
+- whole-plugin signature (skills, manifest, MCP config, and binaries), pinned release identity, SBOM, checksums, provenance, and digest-pinned CI/cross-build images;
+- installer verifies authenticity and target triple before a symlink-safe, content-addressed replacement and rejects unauthorized downgrade;
 - atomic binary swap and a documented rollback;
+- `service plan` emits a digest and `apply` accepts only that exact interactively authorized plan;
+- uninstall first pauses scheduling, reconciles/cancels exact owned remote items, reports uncertainty, stops/disables the service, then offers retained or purged state;
+- plugin-manager removal alone is documented as leaving the independently managed service active unless a verified removal hook exists;
 - no silent self-update.
 
 ### T9: secret or prompt leakage
@@ -153,11 +163,14 @@ Controls:
 
 - credentials from OS facilities or protected files, never command arguments;
 - typed secret wrappers and explicit redaction at every log boundary;
-- prompt bodies excluded from ordinary logs/list/diagnostics;
-- bounded sanitized error summaries;
+- prompt bodies excluded from ordinary logs/list/diagnostics; MCP returns only hash/length/escaped preview by default;
+- request-key rows never duplicate full prompts/tool results;
+- bounded allowlisted error codes rather than truncated attacker-controlled remote text;
 - database/socket/config mode checks in `doctor`;
 - result content is not copied into the scheduler DB;
-- privacy documentation recommends encrypted storage for sensitive prompts.
+- core dumps disabled and panic/journald/launchd/SSH/support-bundle redaction tested;
+- optional envelope encryption with an independently protected key for sensitive prompts, while stating that a key on the same unencrypted SD card does not protect against theft;
+- explicit prompt/soft-delete/WAL/backup/request-key retention and the limits of secure erasure on flash/SQLite.
 
 ### T10: denial of service and storage exhaustion
 
@@ -166,12 +179,13 @@ Risk: too many schedules, large prompts, recurrence expansion, app-server overlo
 Controls:
 
 - prompt maximum 32 KiB;
-- active schedule default quota 1,000;
+- active schedule, stored prompt-byte, daily run, DB/WAL byte, and minimum-free-space quotas;
 - minimum interval one minute;
 - weekly group/slot and preview caps;
 - catch-up age/count caps;
 - bounded channels and two dispatch workers by default;
-- maximum one remote-pending occurrence per automation;
+- maximum one Threadbeat-owned remote-pending occurrence per target task;
+- per-principal, per-task, and global token buckets, with stricter run-now/retry/start/full-doctor limits;
 - SQLite busy timeout and bounded transaction size;
 - history/log retention and journald rate limits;
 - overload backoff with jitter and circuit-breaker behavior.
@@ -182,12 +196,12 @@ Risk: NTP loss or a manual clock jump causes early, repeated, or massive late ex
 
 Controls:
 
-- never execute before stored nominal UTC due time;
+- never materialize/deliver before stored nominal due time and only while clock state is trusted;
 - monotonic sleeping with periodic wall-clock revalidation;
 - unique nominal occurrence keys prevent repeat on backward jumps;
 - catch-up caps limit forward jumps;
 - clock synchronization warning in setup/doctor;
-- large corrections create an audit event.
+- large corrections quarantine delivery until a trusted source stabilizes or a human grants a bounded override.
 
 ### T12: database corruption or double leadership
 
@@ -196,15 +210,16 @@ Risk: power loss or two daemons create lost/duplicate work.
 Controls:
 
 - SQLite WAL, foreign keys, `synchronous=FULL` for critical transitions;
-- one database actor and leader lease;
-- startup migration and integrity checks;
-- expiring worker claims;
-- backup before migrations and no automatic downgrade;
+- one database actor plus an exclusive lifetime OS file lock on a local filesystem;
+- prior-generation in-flight remote intents are quarantined on restart;
+- exclusive OS lock, pre-migration integrity check, consistent DB/WAL backup, transactional migration, and post-migration check;
+- expiring worker claims scoped to the current daemon generation;
+- no automatic database downgrade;
 - corruption fails closed with recovery instructions.
 
 ## Service hardening
 
-The installer generates host-specific configuration because same-host Unix-socket access, SSH credentials, and direct WSS need different systemd address-family and filesystem allowances.
+The installer generates host-specific configuration because same-host Unix-socket and SSH-proxy access need different systemd address-family and filesystem allowances. Direct WSS is deferred from v1.
 
 Linux baseline:
 
@@ -215,7 +230,9 @@ Linux baseline:
 - only `AF_UNIX` unless SSH/TCP topology requires `AF_INET`/`AF_INET6`;
 - no broad `ProtectHome=true` rule that accidentally hides the user-owned app-server socket or SSH credentials; render the narrowest configuration that passes `doctor`;
 - foreground OpenSSH child only for the configured proxy path, with host-key checking and a dedicated known-host entry;
+- supported v1 remote mode requires a dedicated SSH key/account constrained to a forced `codex app-server proxy` command, with no PTY, agent/X11 forwarding, arbitrary commands, or general forwarding; use batch mode and explicit identities;
 - credentials through an available systemd credential mechanism or protected file reference, never inline in the unit.
+- empty Linux capability set, disabled core dumps, redacting panic path, and fixed maximum WebSocket frame/nesting/channel/history-page sizes; compression disabled.
 
 macOS baseline:
 
@@ -235,13 +252,15 @@ MVP validation profile:
 - 50 nominally due in one minute;
 - 10 target tasks active concurrently;
 - two global dispatch workers;
-- one remote-pending occurrence per automation;
+- one Threadbeat-owned remote-pending occurrence per target task;
 - prompts up to 32 KiB, but a representative median below 2 KiB;
 - 90 days of run metadata with bounded caps.
 
 This is intentionally above a normal personal Pi workload while avoiding a false multi-tenant promise.
 
 ### Resource budgets
+
+The RSS/binary targets below apply to the resident Threadbeat daemon unless stated otherwise. The short-lived MCP facade, constrained SSH proxy child, and separately managed Codex app-server are measured and reported separately; release documentation also reports their combined Pi footprint for the supported topology.
 
 | Metric on 64-bit Raspberry Pi OS | Target | Release blocker |
 |---|---:|---:|
@@ -253,6 +272,8 @@ This is intentionally above a normal personal Pi workload while avoiding a false
 | SQLite connections/threads | 1 actor | unbounded pool |
 | Default dispatch concurrency | 2 | unbounded |
 | Daemon-created periodic history scans | 0 | recurring full scans |
+| Trusted idle due-to-add-intent latency | p95 ≤1 s candidate | unmeasured at release |
+| 50-item/10-task local burst intent drain | p95 ≤5 s candidate | starvation/unbounded |
 
 These are measurable engineering gates, not promised estimates. If the official MCP SDK alone makes the idle budget impractical, preserve the SDK by keeping it in the short-lived stdio facade while measuring a minimal daemon dependency graph before considering any manual protocol implementation.
 
@@ -276,7 +297,7 @@ An occurrence legitimately needs several crash-consistent state changes, but it 
 - Persist only lifecycle boundaries and bounded errors.
 - Configure WAL autocheckpoint from measurement, not a desktop default.
 - Compact incrementally during idle windows; never vacuum synchronously in a due path.
-- Default retention proposal: terminal run metadata for 90 days or 50,000 runs, whichever bound is reached first; dispatch-attempt detail for 30 days; schedule audit metadata retained until explicit purge.
+- Initial retention candidate: total state ≤256 MiB, terminal metadata up to 90 days within that byte cap, detailed attempts up to 30 days, request-key hashes/IDs for 30 days, soft-deleted prompt recovery for seven days, and bounded revision/audit history. The earlier byte/age/row bound wins and `doctor` reports the effective horizon.
 - Report DB/WAL/log sizes before limits become emergencies.
 
 The Pi acceptance test measures bytes written per occurrence and extrapolated writes per day under one-minute and representative thirty-minute schedules.
@@ -292,23 +313,25 @@ The Pi acceptance test measures bytes written per occurrence and extrapolated wr
 
 ## Reliability invariants
 
-1. A nominal occurrence is never delivered early.
-2. At most one local occurrence exists per schedule revision and nominal due instant.
+1. A logical occurrence is never delivered before a trusted clock reaches its nominal instant.
+2. At most one local occurrence exists per logical schedule slot/interval ordinal across revision cutovers.
 3. No remote mutation occurs before durable local delivery intent.
 4. No ambiguous remote mutation is blindly replayed.
 5. Queue acceptance is never reported as turn completion.
-6. An interrupted task does not auto-resume without configured/user action.
+6. An interrupted task does not auto-resume; exact blocked-run start requires ownership/head/authority checks and verified user consent.
 7. A missing strict queue capability never becomes a direct-start fallback silently.
 8. Later occurrences do not drift because an earlier one ran late.
 9. Catch-up is always bounded by both policy and service-level caps.
 10. The daemon never answers approvals or user-input requests.
+11. No queue row is treated as owned from client ID alone, and Threadbeat never reorders shared work.
+12. Changed/missing task authority pauses delivery, with the residual queued-start race disclosed.
 
 ## Required adversarial validation
 
 Before implementation approval, independent reviewers must challenge:
 
 - the same-user/local socket boundary;
-- SSH proxy and direct WSS configuration;
+- SSH proxy confinement and Unix-socket path/peer validation;
 - stored-prompt injection and secret redaction;
 - app-server queue ambiguity and interruption behavior;
 - task-settings inheritance;
@@ -322,4 +345,6 @@ Findings and resulting changes will be recorded below rather than erased.
 
 ## Adversarial review log
 
-Pending.
+The full independent findings, corrections, dispositions, and no-ship gate are recorded in `07_ADVERSARIAL_REVIEW.md`. The normative clock, occurrence identity, coalescing, remote-mutation, low-disk, retention, and fairness revisions are in `08_STATE_AND_TIME_SEMANTICS.md`.
+
+Verdict: proceed only with the disposable compatibility/consent/failure-semantics spike. Persistent schema, MCP mutation service, installation, and unattended execution remain blocked until the eight blocker classes have tested solutions or explicitly accepted limitations.

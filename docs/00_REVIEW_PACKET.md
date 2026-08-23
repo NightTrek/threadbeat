@@ -1,6 +1,6 @@
 # Threadbeat architecture review packet
 
-Status: proposal for review, 2026-08-22
+Status: revised proposal; only a disposable compatibility spike is currently approved, 2026-08-22
 
 ## Recommendation
 
@@ -25,7 +25,7 @@ SQLite run/outbox ledger -- thread/queue/add -> existing task
 
 Threadbeat owns calendar truth, recurrence, catch-up, revisions, retries, and history. The existing Codex app-server owns final FIFO admission into a task. Future calendar events are never preloaded into Codex.
 
-This is preferable to calling `turn/start`: current `turn/start` can steer input into an already-active turn, while `thread/queue/add` waits durably and starts atomically when the task is idle. The important constraint is that the thread queue is currently experimental. Strict same-thread scheduling therefore pauses if that capability disappears; it never silently downgrades to a racy path.
+This is preferable to calling `turn/start`: current `turn/start` can steer input into an already-active turn, while current source makes `thread/queue/add` the candidate idle-gated admission path. Its queue-to-history crash semantics are still unproved on a released binary and the API is experimental. Strict same-thread scheduling therefore remains blocked until Phase 1, pauses if tested capability disappears, and never silently downgrades to a racy path.
 
 ## Product defaults
 
@@ -39,14 +39,17 @@ This is preferable to calling `turn/start`: current `turn/start` can steer input
 | Interrupted turn | Pause delivery and report `needs_attention` |
 | Ambiguous queue write | Report `delivery_uncertain`; do not blindly replay |
 | Approval/user input | Never answer automatically |
-| Permissions | Inherit the task; never broaden them |
+| Permissions | Record and recheck an authorized task-settings fingerprint; pause on drift |
 | Calendar timezone | Explicit IANA timezone |
 | DST spring gap | Skip the nonexistent local occurrence |
 | DST fall fold | Run once at the first occurrence |
 | App-server topology | Same-host Unix socket; otherwise loopback through SSH |
 | Remote fallback | No direct `turn/start` fallback in strict mode |
+| MCP scope | Originating task only; cross-task administration is CLI-only |
+| Consent | Host/CLI-verifiable grant by default; current-task trusted-agent mode is explicit opt-in |
+| Remote queue depth | At most one Threadbeat-owned item per target task |
 
-“Exact schedule” means that nominal due times are calculated exactly and never dispatched early. It does not promise that model execution begins at that exact second: downtime, a busy task, approvals, or connectivity can delay it. Each run reports nominal due, enqueued, started, and completed timestamps separately.
+“Exact schedule” means that nominal due times are calculated exactly and are not dispatched before a trusted clock reaches them. It does not promise that model execution begins at that exact second: clock quarantine, downtime, a busy task, approvals, or connectivity can delay it. Each run reports nominal due, enqueued, started, and completed timestamps separately.
 
 ## Five name candidates
 
@@ -77,18 +80,33 @@ threadbeat/
 └── LICENSE
 ```
 
-Prebuilt, checksummed binaries are the default distribution path for Raspberry Pi 64-bit, Linux x86-64, and Apple Silicon/Intel macOS. Building on the device remains a supported fallback, not a requirement. Release builds commit `Cargo.lock`, pin the Rust MCP SDK, and receive a native arm64 Pi smoke test.
+Prebuilt, signed and checksummed whole-plugin bundles are the default distribution path for Raspberry Pi 64-bit, Linux x86-64, and Apple Silicon/Intel macOS. Building on the device remains a supported fallback, not a requirement. Release builds commit `Cargo.lock`, pin the Rust MCP SDK, and receive a native arm64 Pi smoke test against the oldest supported OS/ABI.
 
 ## What the MVP includes
 
 - Same-task heartbeat schedules.
 - One-shot, anchored interval, and weekly local-time schedules.
 - Multiple weekdays and multiple times, including “10:00 and 12:00 Monday through Thursday.”
-- Durable restart recovery and bounded catch-up.
+- Durable local restart recovery and bounded catch-up after clock trust and the separately managed app-server return.
 - Pause, resume, edit, soft-delete, run-now, run history, retry, and diagnostics.
 - Existing app-server daemon discovery and connection; Threadbeat does not own or start Codex by default.
 - systemd user-service installation for Raspberry Pi/Linux and a launchd LaunchAgent on macOS.
 - Strict service/socket permissions, redacted logs, and no agent-callable endpoint reconfiguration.
+- Current-task MCP scoping, authority-drift checks, queue-row ownership digests, and conservative ambiguity handling.
+
+## Proposed agent tool surface
+
+Security review changed the initial five-tool proposal into seven risk-separated tools:
+
+1. `automation_preview`
+2. `automation_update`
+3. `automation_run`
+4. `automation_get`
+5. `automation_list`
+6. `automation_runs`
+7. `automation_doctor`
+
+The current Codex app exposes one direct `codex_app__automation_update` tool; its exact description and declaration are captured in `06_RESEARCH_BASELINE.md`. Threadbeat retains `automation_update` for ordinary schedule changes but separates read-only preview and high-risk immediate/recovery operations so MCP annotations and consent policy can be accurate. Complete proposed descriptions, arguments, results, annotations, errors, and shared types are in `03_MCP_TOOL_CONTRACT.md`.
 
 ## Explicit non-goals for MVP
 
@@ -100,17 +118,20 @@ Prebuilt, checksummed binaries are the default distribution path for Raspberry P
 - Arbitrary file, image, or audio attachments in scheduled prompts.
 - A custom graphical schedule editor.
 - Direct unauthenticated network listeners.
+- Direct WSS app-server access in v1; the tested CLI exposes WebSocket but not native TLS termination.
+- A promise that Threadbeat starts or keeps the separately managed Codex app-server alive.
 
 ## Decisions requested at the review gate
 
-The architecture has opinionated defaults. Four decisions are worth resolving before code:
+The architecture has opinionated defaults. Five decisions are worth resolving before persistent implementation:
 
 1. **Name:** accept `Threadbeat`, choose another candidate, or supply a new name.
-2. **Experimental dependency:** accept that strict same-thread delivery is a technical preview until `thread/queue/*` stabilizes.
-3. **Calendar catch-up:** accept one coalesced catch-up within 24 hours for both interval and weekly heartbeats, or make weekly schedules skip by default.
-4. **Supported remote path:** make SSH-to-loopback the only supported remote topology in v1, or also support direct authenticated WSS as an advanced preview.
+2. **Experimental dependency:** accept that strict same-thread delivery remains a technical preview until a released Codex build passes the queue crash/semantics matrix and `thread/queue/*` stabilizes.
+3. **Inherited authority:** accept the documented same-task settings race, require dedicated scheduler-owned tasks, or wait for an upstream authority-snapshot API.
+4. **Consent policy:** keep host/CLI-confirmed activation as the secure default, with `trusted_agent_current_task` available only as a setup-time personal-use opt-in.
+5. **Calendar catch-up:** accept one coalesced catch-up within 24 hours for both interval and weekly heartbeats, or make weekly schedules skip by default.
 
-Everything else in this packet is proposed as a default rather than another setup question.
+SSH-to-loopback is now the only v1 remote path; direct WSS is deferred. Everything else in this packet is proposed as a default rather than another setup question.
 
 ## Image plan
 
@@ -126,6 +147,6 @@ All images will be generated without OpenAI/Codex trade dress unless branding pe
 
 ## Evidence boundary
 
-The design is based on the locally installed Codex `0.149.0-alpha.4.1`, its generated JSON schema, and a source snapshot at `openai/codex` commit `422239eb4b1e0d0f85fac7256a079a1befe78472`. The exact installed daemon is capability-probed at runtime; a source date or guessed version is never treated as compatibility proof.
+The design is based on the locally installed Codex `0.149.0-alpha.4.1`, its generated JSON schema, and a source snapshot at `openai/codex` commit `422239eb4b1e0d0f85fac7256a079a1befe78472`. This is insufficient for a release claim. A disposable Phase-1 spike must prove queue persistence, ownership, authority fields, and queue-to-history recovery on an actual released binary; supported production builds then come from a semantic compatibility allowlist, not a method probe alone.
 
 See the remaining documents for requirements, exact tool schemas, failure semantics, threats, budgets, test gates, and primary-source links.

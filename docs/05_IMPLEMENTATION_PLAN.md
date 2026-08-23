@@ -1,10 +1,10 @@
 # Implementation plan
 
-Status: proposed sequence after architecture approval
+Status: only Phase 1 and isolated pure prototypes are approved; Phases 2–8 remain gated
 
 ## Delivery strategy
 
-Build risk-first. The first code is not the recurrence engine or UI assets; it is a small compatibility spike proving that the exact supported app-server can accept, persist, start, and correlate a deterministic queued message in an existing task. If that fails, the product promise changes before a large scheduler is built.
+Build risk-first. The first integrated code is a disposable compatibility/security spike proving that a released app-server can accept, persist, start, own, authorize, and correlate a randomly identified queued message in a disposable task across real crash points. It also proves the MCP host’s originating-task and consent boundary. If that fails, the product promise changes before a persistent schema, service, or large scheduler is built.
 
 Each phase ends with a reviewable commit series and an explicit exit gate. Main remains buildable; commits should be small enough to explain one design choice or invariant.
 
@@ -15,19 +15,22 @@ Decide:
 - product name and stable plugin/service/binary identifiers;
 - acceptance of the experimental strict queue dependency;
 - weekly catch-up default;
-- supported remote topology for v1; and
+- same-task inherited-authority risk versus dedicated scheduler-owned tasks;
+- host-confirmed versus explicit current-task trusted-agent consent policy; and
 - whether standalone project jobs/notifications are required in MVP or explicitly post-MVP.
+
+Remote topology is no longer open for v1: same-host Unix socket and SSH-proxied app-server are supported; direct WSS is deferred.
 
 Outputs:
 
-- accepted ADRs for queue adapter, interval semantics, ambiguity policy, and task authority inheritance;
+- accepted ADRs for queue adapter, interval semantics, ambiguity policy, current-task scope/consent, task authority inheritance, clock trust, queue ownership, and local leadership;
 - versioned tool contract;
 - threat model sign-off;
 - release targets and license choice.
 
 Exit gate: no unresolved decision changes persistent schema, authority, or advertised guarantee.
 
-## Phase 1: repository and protocol compatibility spike
+## Phase 1: disposable compatibility, consent, and failure-semantics spike
 
 ### Work
 
@@ -38,10 +41,17 @@ Exit gate: no unresolved decision changes persistent schema, authority, or adver
 - Implement WebSocket framing over Unix socket.
 - Implement one optional SSH-proxy byte-stream adapter.
 - Add a fake app-server harness that records/reorders/drops frames.
-- Queue a deterministic marker into a disposable existing task, observe it start only when idle, and correlate `userMessage.clientId` through completion.
-- Prove restart persistence of the app-server queue.
-- Deliberately lose the `queue/add` response and measure what queue/history evidence remains.
+- Prove `_meta.threadId` authenticity/scoping and any host elicitation/approval path that can issue a server-verifiable human consent grant; if unavailable, prove the paused/CLI-approval flow.
+- Read effective task authority fields, test `auto_review`, observe settings changes, and measure the unavoidable settings-check-to-automatic-start race.
+- Queue a cryptographically random marker with a canonical input digest into a disposable task, observe idle-only start, and correlate `userMessage.clientId` plus digest through completion.
+- Run a mixed-client queue matrix: external occupancy, forged/copied client ID, duplicate exact matches, externally altered input, exact-ID start, omitted-ID start, delete/start response loss, interruption, and FIFO/head behavior.
+- Prove restart persistence and run kill points before/after queue insert, RPC reply, idle reservation, Core acceptance, queue-row deletion, user-message persistence, turn start, and terminal persistence.
+- Measure exact queue/history pagination and retention bounds for reconciliation.
 - Deliberately remove experimental capability and prove fail-closed behavior.
+- Test exclusive OS lock behavior under pause/resume/kill and quarantine prior-generation in-flight sends.
+- On a native Pi, test untrusted boot clock/NTP steps and SQLite full/I/O/WAL/checkpoint failure before choosing persistent states.
+- Test oversized stdio/WebSocket frames and wrap the pinned SDK transport with hard bounds if needed.
+- Prove the constrained SSH proxy/forced-command design; do not install a persistent service in this phase.
 
 ### Commits
 
@@ -52,14 +62,19 @@ Examples of intended granularity:
 3. `feat: initialize app-server over Unix WebSocket`
 4. `feat: probe strict thread queue capability`
 5. `test: correlate queued client message to completed turn`
-6. `docs: record compatibility spike results`
+6. `test: map host consent and authority drift behavior`
+7. `test: exercise queue ownership and kill points`
+8. `docs: record compatibility spike results and gate decision`
 
 ### Exit gate
 
 - Strict queue behavior works against at least one released Codex binary, not only a source build/alpha.
-- The exact version/schema digest is recorded.
+- The exact version/schema digest and semantic conformance evidence are recorded in a support allowlist.
 - No direct-start race is presented as strict.
-- Ambiguous-delivery behavior matches the documented conservative policy.
+- Queue ownership, all remote-mutation ambiguity, history bounds, and crash windows match the conservative contract.
+- Caller/task scoping and a usable human-consent or safe paused flow are demonstrated.
+- Authority fingerprint fields and residual race are understood well enough for an honest product decision.
+- Clock, leader, low-disk, bounded-frame, and SSH assumptions have evidence.
 
 If no released binary has the necessary queue capability, ship status remains technical preview or implementation pauses for an upstream API decision.
 
@@ -77,24 +92,24 @@ If no released binary has the necessary queue capability, ship status remains te
 ### Exit gate
 
 - The schedule engine has no I/O or daemon dependencies.
-- Property tests show no interval drift and no duplicate nominal instant.
+- Property tests show no interval drift and no duplicate logical occurrence across revisions/resolution collisions.
 - The user’s M–Th at 10:00 and 12:00 example normalizes to eight correct weekly slots.
 
 ## Phase 3: SQLite ledger and scheduler daemon
 
 ### Work
 
-- Add forward-only migrations for profiles, schedules, occurrences, attempts, events, request keys, and leader lease.
+- Add forward-only migrations for profiles, immutable revisions, logical occurrences, remote mutation intents, attempts, events, scoped request keys, and daemon generations.
 - Implement single DB actor, permissions, WAL, busy timeout, integrity checks, and critical full-synchronous transitions.
 - Implement optimistic schedule revisions and request-key idempotency.
 - Implement one-deadline scheduler, bounded due-batch materialization, worker claims, per-task lanes, and two-worker dispatcher.
 - Implement state machine guards so invalid transitions cannot be persisted.
-- Implement startup recovery, claim expiry, clock-jump audit, and retention.
+- Implement lifetime OS locking, generation quarantine, startup recovery, clock-trust/quarantine, low-space admission, allocated reserve, bounded WAL/checkpoint/retention, and claim expiry.
 - Add deterministic crash injection after every state transition.
 
 ### Exit gate
 
-- Kill/power-loss simulations cannot create two local occurrences for one nominal key.
+- Kill/power-loss simulations cannot create two local occurrences for one logical key across revisions.
 - A second daemon cannot schedule the same database.
 - A Pi-sized workload meets preliminary database/write budgets before app-server traffic is added.
 
@@ -103,12 +118,13 @@ If no released binary has the necessary queue capability, ship status remains te
 ### Work
 
 - Connect the scheduler outbox to `queue_v1`.
-- Reconcile deterministic client IDs in queue and task history before mutations.
+- Reconcile the full ownership tuple—random client ID, canonical input digest, target, occurrence, and known remote ID—before mutations.
 - Correlate remote queue submission, user message, turn ID, terminal event, interruption, approval, and user-input state.
 - Implement bounded overload/reconnect backoff.
-- Implement `delivery_uncertain`, explicit retry lineage, and duplicate-risk acknowledgment.
-- Implement queue pause/resume semantics after interruption.
-- Prevent future preloading and enforce one remote-pending heartbeat per automation.
+- Implement durable intent/uncertainty handling for add, exact-owned delete, and exact-ID start; remote queue update is unused, and model Booleans are replaced with verified consent.
+- Implement task-wide interruption blocking; never auto-start, omit a queue ID, reorder, or start a non-head owned row by default.
+- Recheck the authorized task fingerprint before add/start and observe queued-work drift without claiming an atomic guarantee.
+- Prevent future preloading and enforce one Threadbeat-owned remote item per target task with fair local scheduling.
 - Record sanitized protocol diagnostics and capability changes.
 
 ### Exit gate
@@ -121,10 +137,10 @@ If no released binary has the necessary queue capability, ship status remains te
 
 ### Work
 
-- Implement the five tools in `03_MCP_TOOL_CONTRACT.md` using exactly pinned `rmcp` features.
+- Implement the seven risk-separated tools in `03_MCP_TOOL_CONTRACT.md` using exactly pinned `rmcp` features.
 - Generate input and output schemas from Rust types and snapshot them.
-- Propagate `_meta.threadId` only as a Codex convenience; retain explicit target fallback.
-- Enforce quotas, validation, idempotency keys, optimistic revisions, and stable error codes.
+- Bind MCP to the Phase-1-proven host-validated `_meta.threadId`; deny raw cross-task targeting and keep global/cross-task work CLI-only.
+- Enforce host/CLI consent policy, principal-scoped quotas, versioned canonical idempotency, optimistic revisions, display normalization, and stable safe errors.
 - Implement structured content plus concise human-readable summaries.
 - Implement the same service API in `threadbeat ctl` for recovery when no agent is available.
 - Add tool-selection fixtures for common natural-language requests and adversarial stored data.
@@ -142,7 +158,8 @@ If no released binary has the necessary queue capability, ship status remains te
 ### Work
 
 - Implement `service plan` to render exact systemd/launchd changes without applying them.
-- Implement explicitly authorized install/upgrade/uninstall and rollback.
+- Make `service plan` content-addressed; require exact digest approval for symlink-safe atomic apply.
+- Implement explicitly authorized signed-bundle install, downgrade-protected upgrade, safe uninstall, and rollback using absolute versioned binary paths.
 - Validate clock, paths, file modes, existing app-server reachability, initialize, strict queue capability, target task read/resume, and database durability.
 - Package `.codex-plugin/plugin.json` and direct-map `.mcp.json`.
 - Write `threadbeat-automations` skill with minimal workflow/tool guidance.
@@ -154,7 +171,7 @@ If no released binary has the necessary queue capability, ship status remains te
 ### Exit gate
 
 - Clean Pi install reaches a running, enabled, and verified service.
-- Disabling/removing the plugin does not orphan an unexplained service; setup documentation distinguishes plugin removal from service removal.
+- Uninstall pauses scheduling, reconciles/cancels exact owned remote items, reports ambiguity, stops/disables the service, and offers state retention/purge. Plugin-manager removal alone is prominently documented as insufficient if no removal hook exists.
 - Upgrade preserves schedules and can roll back the binary if migration has not advanced incompatibly.
 - Manifest references exist, paths are relative and portable, images render at target sizes, and no secret is packaged.
 
@@ -163,10 +180,12 @@ If no released binary has the necessary queue capability, ship status remains te
 ### Security work
 
 - Attempt cross-user and same-user socket access.
+- Verify peer credentials, socket inode/parents, dedicated-account mode, and same-UID full-compromise documentation.
 - Test malicious automation names/prompts/errors against later list/get interactions.
 - Test endpoint/path/credential injection through every MCP string.
 - Verify secret redaction in normal, debug, panic, and diagnostics paths.
 - Verify SSH host-key/certificate/auth failures are closed, legible, and non-fallback.
+- Verify forced-command/no-forwarding SSH restrictions and WebSocket compression/frame limits.
 - Review systemd/launchd plans for privilege and path overreach.
 - Run RustSec, cargo-deny, SBOM, provenance, and artifact-signature checks.
 
@@ -201,11 +220,11 @@ The release definition in the PRD passes on a clean Pi and one macOS host. No cl
 | Layer | Required tests |
 |---|---|
 | Schedule | examples, property tests, fuzzing, DST/leap/clock golden cases |
-| Database | migration, power-loss, unique keys, leases, corruption, retention |
+| Database | migration, power-loss, logical unique keys, OS locks/generations, disk-full, corruption, retention |
 | Protocol DTO | generated-schema diff, additive fields, missing IDs, unknown states |
-| Fake app-server | overload, disconnect, lost response, reordering, duplication, interruption, approvals |
-| Real app-server | each supported binary × UDS/SSH × restart × active-task race |
-| MCP | schema snapshots, conformance, idempotency, tool-selection scenarios |
+| Fake app-server | every mutation lost-response, external ownership changes, overload, disconnect, interruption, approvals |
+| Real app-server | each supported binary × UDS/SSH × kill points × mixed clients × authority drift/active-task race |
+| MCP | schema snapshots, conformance, principal/task scope, consent, bounded frames, idempotency, tool selection |
 | Plugin/skills | manifest validation, clean install, setup rollback, skill evaluation |
 | Pi | native smoke, resource burst, soak, SD writes, reboot, clock/network faults |
 
@@ -225,6 +244,7 @@ The cleanest long-term improvements belong upstream in Codex:
 2. add an idempotency uniqueness constraint on `(threadId, clientUserMessageId)`;
 3. make queue-row-to-durable-user-message handoff atomically recoverable;
 4. expose per-queued-turn settings where safe; and
-5. publish/version an external Rust app-server protocol client.
+5. atomically bind a queued item to an authorized settings fingerprint or condition;
+6. publish/version an external Rust app-server protocol client.
 
 Threadbeat must not wait on those changes to prototype, but it must not claim guarantees they are required to provide.
