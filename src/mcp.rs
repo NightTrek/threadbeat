@@ -297,5 +297,35 @@ mod tests {
                 "automation_update",
             ]
         );
+
+        for tool in &tools {
+            assert!(
+                tool.description
+                    .as_deref()
+                    .is_some_and(|description| !description.trim().is_empty()),
+                "{} needs an agent-visible description",
+                tool.name
+            );
+            assert_eq!(
+                tool.input_schema.get("type").and_then(Value::as_str),
+                Some("object"),
+                "{} input schema must be an object",
+                tool.name
+            );
+            assert!(
+                tool.output_schema.is_some(),
+                "{} needs an output schema",
+                tool.name
+            );
+            assert!(
+                tool.annotations.is_some(),
+                "{} needs annotations",
+                tool.name
+            );
+        }
+
+        let agent_visible = serde_json::to_string(&tools).expect("serialize tool surface");
+        assert!(!agent_visible.contains("automation_preview"));
+        assert!(!agent_visible.contains("intentId"));
     }
 }

@@ -168,8 +168,12 @@ impl Config {
     }
 
     pub fn load(path: Option<&Path>) -> Result<Self> {
+        let explicit_path = path.is_some();
         let path = path.map_or_else(Self::default_path, Path::to_path_buf);
         if !path.exists() {
+            if explicit_path {
+                bail!("explicit config path does not exist: {}", path.display());
+            }
             let config = Self::default();
             config.validate()?;
             return Ok(config);
@@ -382,5 +386,17 @@ mod tests {
         assert!(!config.delivery.enabled);
         assert!(config.delivery.strict_compatibility);
         assert!(config.app_server.is_none());
+    }
+
+    #[test]
+    fn explicit_missing_config_is_rejected() {
+        let directory = tempfile::TempDir::new().expect("tempdir");
+        let missing = directory.path().join("missing.toml");
+        let error = Config::load(Some(&missing)).expect_err("explicit typo must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("explicit config path does not exist")
+        );
     }
 }

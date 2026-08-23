@@ -135,7 +135,7 @@ async fn main() -> Result<()> {
     init_logging();
     let cli = Cli::parse();
     let config_path = cli.config.clone().unwrap_or_else(Config::default_path);
-    let config = Config::load(Some(&config_path))?;
+    let config = Config::load(cli.config.as_deref())?;
 
     match cli.command {
         Command::Daemon => threadbeat::daemon::run(config).await,
@@ -254,7 +254,9 @@ fn run_service(config: &Config, config_path: PathBuf, args: ServiceArgs) -> Resu
             let plan: ServicePlan =
                 serde_json::from_str(&encoded).context("invalid service plan")?;
             plan.apply(&plan_digest)?;
-            println!("installed service file; activation was not run automatically");
+            println!(
+                "installed reviewed private directories and service file; activation was not run"
+            );
             println!("activation command: {}", plan.activation_command.join(" "));
             Ok(())
         }
