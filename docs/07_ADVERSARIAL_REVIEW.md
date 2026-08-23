@@ -2,6 +2,8 @@
 
 Review date: 2026-08-22
 
+Status: historical review record. Dispositions describe target controls unless `10_IMPLEMENTATION_STATUS.md` confirms their implementation.
+
 Reviewers:
 
 - independent security/privacy adversary;
@@ -156,8 +158,8 @@ Disposition: **accepted; this is the implementation gate**.
 | App-server availability is outside Threadbeat ownership | Promise schedule durability and reconnect after the separately managed app-server returns, not app-server uptime. |
 | Disk full after remote acceptance can erase acknowledgment | Free-space admission threshold, preallocated emergency reserve, no-new-mutations mode, startup reconciliation. Residual media-failure ambiguity remains. |
 | Retention was inconsistent with stress workload | Bound by bytes and rows, report effective time horizon, define prompt/request-key/audit erasure. |
-| Capability probing is semantically weak | Maintain a tested released-binary allowlist; unknown builds are blocked by default or explicit preview-only override. |
-| MCP facade and daemon may be different versions | Versioned local control handshake, feature negotiation, drain/restart/rollback rules. |
+| Capability probing is semantically weak | Maintain a tested released-binary allowlist; unknown builds are blocked. |
+| MCP facade and daemon may be different versions | Alpha rejects a fixed protocol-version mismatch; feature negotiation and drain/restart/rollback rules remain target design. |
 | Resource budget omitted latency | Add dispatch/recovery SLO candidates and measure before promising. |
 | Linux target lacked ABI matrix | Freeze Pi model/OS/glibc/filesystem matrix after the dependency spike; test oldest target natively. |
 | Full prompts were returned/stored too broadly | MCP returns hash/length/redacted preview by default; full-body access is separately scoped; no prompt/result copy in idempotency rows. |

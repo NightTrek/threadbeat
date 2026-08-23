@@ -113,7 +113,7 @@ impl ServicePlan {
                 vec![
                     "launchctl".to_owned(),
                     "bootout".to_owned(),
-                    "gui/$UID/dev.nighttrek.threadbeat".to_owned(),
+                    "gui/$UID/io.github.nighttrek.threadbeat".to_owned(),
                 ],
             ),
         };
@@ -218,7 +218,7 @@ fn validate_plan_path(path: &Path, label: &str) -> Result<()> {
 fn validate_destination(platform: ServicePlatform, destination: &Path) -> Result<()> {
     let expected_name = match platform {
         ServicePlatform::SystemdUser => "threadbeat.service",
-        ServicePlatform::LaunchdAgent => "dev.nighttrek.threadbeat.plist",
+        ServicePlatform::LaunchdAgent => "io.github.nighttrek.threadbeat.plist",
     };
     if destination.file_name().and_then(|name| name.to_str()) != Some(expected_name) {
         bail!("service destination has an unexpected basename");
@@ -543,7 +543,7 @@ fn render_systemd(binary: &Path, config: &Path, state_dir: &Path, runtime_dir: &
 
 fn render_launchd(binary: &Path, config: &Path) -> String {
     format!(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>\n<key>Label</key><string>dev.nighttrek.threadbeat</string>\n<key>ProgramArguments</key><array><string>{}</string><string>--config</string><string>{}</string><string>daemon</string></array>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>\n<key>ProcessType</key><string>Background</string>\n<key>SoftResourceLimits</key><dict><key>Core</key><integer>0</integer></dict>\n<key>HardResourceLimits</key><dict><key>Core</key><integer>0</integer></dict>\n<key>Umask</key><integer>63</integer>\n</dict></plist>\n",
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>\n<key>Label</key><string>io.github.nighttrek.threadbeat</string>\n<key>ProgramArguments</key><array><string>{}</string><string>--config</string><string>{}</string><string>daemon</string></array>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>\n<key>ProcessType</key><string>Background</string>\n<key>SoftResourceLimits</key><dict><key>Core</key><integer>0</integer></dict>\n<key>HardResourceLimits</key><dict><key>Core</key><integer>0</integer></dict>\n<key>Umask</key><integer>63</integer>\n</dict></plist>\n",
         xml_escape(&binary.display().to_string()),
         xml_escape(&config.display().to_string())
     )
@@ -591,7 +591,7 @@ mod tests {
         let destination = match platform {
             ServicePlatform::SystemdUser => root.join(".config/systemd/user/threadbeat.service"),
             ServicePlatform::LaunchdAgent => {
-                root.join("Library/LaunchAgents/dev.nighttrek.threadbeat.plist")
+                root.join("Library/LaunchAgents/io.github.nighttrek.threadbeat.plist")
             }
         };
         fs::create_dir_all(destination.parent().expect("destination parent"))
@@ -656,7 +656,7 @@ mod tests {
             Path::new("/Users/test/.config/threadbeat/config.toml"),
             Path::new("/Users/test/Library/Application Support/Threadbeat"),
             Path::new("/Users/test/Library/Caches/Threadbeat/run\u{202e}"),
-            Path::new("/Users/test/Library/LaunchAgents/dev.nighttrek.threadbeat.plist"),
+            Path::new("/Users/test/Library/LaunchAgents/io.github.nighttrek.threadbeat.plist"),
         );
         assert!(bidi.is_err());
     }
@@ -681,7 +681,7 @@ mod tests {
                 Path::new("/Users/test/.config/threadbeat/config.toml"),
                 Path::new("/Users/test/Library/Application Support/Threadbeat"),
                 Path::new("/Users/test/Library/Caches/Threadbeat/run"),
-                Path::new("/tmp/dev.nighttrek.threadbeat.plist"),
+                Path::new("/tmp/io.github.nighttrek.threadbeat.plist"),
             )
             .is_err()
         );

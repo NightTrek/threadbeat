@@ -62,7 +62,7 @@ impl ThreadbeatServer {
         .await
         .map_err(|_| {
             ErrorData::internal_error(
-                "Threadbeat daemon is unavailable; run automation_doctor or threadbeat service status",
+                "Threadbeat daemon is unavailable; start the separately configured service, then run automation_doctor",
                 Some(json!({"code": "DAEMON_UNAVAILABLE", "retryable": true})),
             )
         })?;

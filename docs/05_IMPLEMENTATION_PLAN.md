@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: only Phase 1 and isolated pure prototypes are approved; Phases 2–8 remain gated
+Status: historical risk-first plan. Several core phases were implemented as a fail-closed alpha; `10_IMPLEMENTATION_STATUS.md` supersedes this file for current completion claims.
 
 ## Delivery strategy
 

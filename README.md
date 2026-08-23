@@ -2,6 +2,8 @@
 
 Threadbeat is a Rust MCP scheduler and Codex plugin for durable, same-task heartbeat automations through an existing Codex app-server daemon. It never starts an app-server itself.
 
+Threadbeat is an independent, unofficial project. It is not affiliated with, endorsed by, or supported by OpenAI. OpenAI, Codex, and related marks belong to their respective owners.
+
 The public MCP surface has six tools: `automation_update`, `automation_run`, `automation_get`, `automation_list`, `automation_runs`, and `automation_doctor`. Schedule explanation and visualization stay in the bundled skill; there is no custom preview tool.
 
 ## Packaged binary or source build

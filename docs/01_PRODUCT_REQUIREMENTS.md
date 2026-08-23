@@ -1,6 +1,6 @@
 # Product requirements
 
-Status: revised requirements; persistent MVP implementation is gated on the Phase-1 evidence in the adversarial review
+Status: target product requirements. The implemented alpha boundary is authoritative in `10_IMPLEMENTATION_STATUS.md`; unchecked requirements below are not release claims.
 
 ## Product statement
 
@@ -77,10 +77,10 @@ The user can list schedules, read normalized configuration and next run, see lif
 
 ### FR-0: caller scope and consent
 
-- MCP operations must be scoped to a validated service principal and originating Codex task; Phase 1 must prove the host can supply that integrity boundary.
+- MCP operations must be scoped to an originating Codex task. The alpha accepts host-provided `_meta.threadId`; proving that the host integrity-protects it remains a release gate.
 - `_meta.threadId` is the target binding, not a convenience that a raw argument may override.
 - Cross-task targeting and global administration are CLI-only unless the host supplies an authenticated scoped target capability.
-- Active creation, run-now, uncertain retry, blocked-run start, and destructive pending-work cancellation require a server-verifiable host/CLI consent grant under the default policy.
+- Active creation, run-now, uncertain retry, blocked-run start, and destructive pending-work cancellation require the alpha's one-use, task-scoped CLI grant under the default policy. A host-verifiable operation-bound grant is target design, not implemented.
 - If no supported human-routed grant mechanism exists, MCP creates a paused/suggested automation.
 - A setup-time `trusted_agent_current_task` policy may accept agent tool calls as authorization only for the originating task; its prompt-injection risk is explicit.
 - Names, prompts, titles, and errors returned by tools are untrusted data, never administrative instructions.
@@ -137,7 +137,7 @@ MVP supports a closed tagged union:
 - Threadbeat never reorders the shared task queue and only mutates exact rows whose complete ownership tuple matches.
 - If the strict queue capability is unavailable or disappears, strict schedules pause and diagnostics explain why.
 - A racy direct `turn/start` mode is not silently substituted.
-- Runtime support requires a semantically tested released-build allowlist; an unknown build is blocked or explicit preview-only, even if the methods exist.
+- Runtime support requires a semantically tested released-build allowlist; an unknown build is blocked even if the methods exist.
 
 ### FR-7: duplicate resistance
 

@@ -1,16 +1,16 @@
 # MCP tool contract
 
-Status: implemented v0.1 alpha contract; production schema freeze waits on host-consent and app-server semantic evidence
+Status: implemented v0.1 alpha tool schema plus explicitly marked future authority design. Generated runtime schemas and `10_IMPLEMENTATION_STATUS.md` are authoritative.
 
 ## Design rules
 
 - Heartbeat to the originating Codex task is the only MVP execution kind.
-- MCP task scope is designed to come from a host-validated `_meta.threadId`; Phase 1 must prove that binding before mutations ship, and a raw argument cannot select another task.
+- MCP task scope comes from host-provided `_meta.threadId`; proving that the host integrity-protects that metadata remains a release gate, and a raw tool argument cannot select another task.
 - Cross-task/global administration, service/profile configuration, purge, and unrestricted prompt reads are CLI-only.
-- Human consent is server-verifiable. A model-provided Boolean is never consent.
+- Default alpha consent is a one-use, task-scoped CLI grant with a bounded TTL. It is not principal-bound or operation-digest-bound; a stronger host-verifiable grant remains target design. A model-provided Boolean is never consent.
 - Ordinary schedule mutation, immediate/recovery run control, reads, and diagnostics are separate tools so MCP risk annotations are truthful.
 - Inputs use structured schedules; raw RRULE is never accepted or shown.
-- Mutations require principal-scoped idempotency keys; edits require optimistic revisions.
+- Mutations require originating-task + operation scoped idempotency keys; edits require optimistic revisions.
 - Stored names/previews/errors are untrusted data and are never interpolated into trusted recommendations.
 
 The public MCP catalog contains six tools:
@@ -27,23 +27,21 @@ The public MCP catalog contains six tools:
 This metadata is not a model-settable tool argument:
 
 ```ts
-type CandidateTrustedRequestContext = {
-  principalId: string;       // configured local MCP/service principal
-  originatingThreadId: string; // candidate Codex _meta.threadId binding
-  callId?: string;           // tracing only
-  hostConsentGrant?: string; // opaque, signed/single-use when supported
+type AlphaRequestContext = {
+  originatingThreadId: string; // host-provided Codex _meta.threadId candidate binding
+  callId?: string;              // tracing and trusted-agent-mode presence only
 };
 ```
 
-Phase 1 must prove whether the target Codex host authenticates and integrity-protects these fields. Until then they are candidate bindings, not established security facts. If the originating task is absent or cannot be validated under the selected host policy, task-scoped MCP tools fail with `ORIGINATING_TASK_REQUIRED`. The CLI can perform an interactive scoped flow; the daemon never guesses a recent task.
+The host-integrity property of these fields has not been proved. They are candidate bindings, not authentication facts. If the originating task is absent, task-scoped MCP tools fail with `ORIGINATING_TASK_REQUIRED`; the daemon never guesses a recent task.
 
 Consent policy:
 
-- `host_confirmed` (default): active create, run-now, uncertain retry, exact blocked-run start, and destructive pending-work cancellation require an unexpired server-verifiable grant bound to principal, originating task, canonical operation digest, and single use. The grant comes from supported host elicitation/approval or interactive `threadbeat --config <path> ctl authorize --thread-id <id> [--minutes <1-1440>]`.
-- `trusted_agent_current_task` (explicit setup opt-in): a host-authorized MCP invocation is accepted as consent only within the originating task, with quotas and audit. This has an explicit prompt-injection/confused-deputy warning.
-- If neither is satisfied, create can only be `suggested_create`/paused and risky run operations fail closed.
+- `cli_grant` (default): `threadbeat --config <path> ctl authorize --thread-id <id> [--minutes <1-1440>]` creates one unexpired, one-use grant for that task. The alpha grant is not bound to a principal or exact operation digest, so operators should issue it immediately before the intended mutation.
+- `trusted_agent_current_task` (explicit setup opt-in): the presence of an MCP call ID is accepted as consent within the originating task. This has an explicit prompt-injection/confused-deputy warning and is not equivalent to host-authenticated approval.
+- Without either, create can only be `suggested_create`/paused and risky run operations fail closed.
 
-Phase 1 must determine the exact host mechanism. Tool schemas do not expose a forgeable `acknowledge:true` substitute.
+Future host-confirmed, principal-bound, operation-digest-bound grants require a separately verified host mechanism. Tool schemas do not expose a forgeable `acknowledge:true` substitute.
 
 ## Shared input types
 
@@ -158,7 +156,7 @@ The normalized result contains eight stable slot IDs plus upcoming intended-loca
 type AutomationUpdateArgs =
   | {
       operation: "suggested_create" | "create";
-      requestKey: string; // 1..128, principal+operation scoped
+      requestKey: string; // 1..128, originating-task+operation scoped
       name: string;
       prompt: string;
       schedule: Schedule;
@@ -559,7 +557,7 @@ An existing pending envelope is never treated as a fresh reservation. If a daemo
 
 | Code | Meaning |
 |---|---|
-| `ORIGINATING_TASK_REQUIRED` | Authenticated current-task binding is absent. |
+| `ORIGINATING_TASK_REQUIRED` | Host-provided current-task metadata is absent. |
 | `CROSS_TASK_SCOPE_DENIED` | Caller attempted to address another task. |
 | `CONSENT_REQUIRED` | Active/risky operation lacks a valid host/CLI grant. |
 | `VALIDATION_ERROR` | Semantically invalid combination. |
@@ -586,7 +584,7 @@ Errors contain a fixed safe message, retryability, and opaque correlation ID. Ra
 
 ## Quotas and rate limits
 
-Exact release values are measured, but the schema enforces:
+The target design calls for the following limits. The alpha currently enforces prompt/schedule/list bounds, task-scoped row quotas, backlog limits, and one-use grants; it does not yet implement every token bucket, byte/free-space cap, or remote-pending cap listed below:
 
 - per-principal, per-task, and global mutation/run token buckets;
 - active schedule, stored prompt-byte, daily run, due-burst, DB/WAL, and free-space caps;

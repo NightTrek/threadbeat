@@ -164,7 +164,7 @@ The package scaffold uses this asset-free shape:
 }
 ```
 
-The manifest references no image assets until reviewed files actually exist. Optional public website/privacy/terms/repository fields are added only when real values exist; the current package declares the repository's Apache-2.0 license.
+The manifest references the reviewed composer icon plus light/dark logo assets. Optional public website/privacy/terms fields are added only when real values exist; the current package declares the repository's Apache-2.0 license.
 
 ## Development installation
 

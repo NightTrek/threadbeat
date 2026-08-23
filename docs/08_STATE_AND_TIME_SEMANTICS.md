@@ -1,6 +1,6 @@
-# Normative state and time semantics
+# Target state and time semantics
 
-Status: revision prompted by adversarial review; final schema remains gated on Phase 1 evidence
+Status: normative target contract prompted by adversarial review, not a complete description of the alpha runtime. `10_IMPLEMENTATION_STATUS.md` is authoritative for implemented transitions and recovery.
 
 ## Terminology
 

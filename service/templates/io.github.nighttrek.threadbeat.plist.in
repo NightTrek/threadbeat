@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>dev.nighttrek.threadbeat</string>
+  <string>io.github.nighttrek.threadbeat</string>
   <key>ProgramArguments</key>
   <array>
     <string>@THREADBEAT_BINARY@</string>

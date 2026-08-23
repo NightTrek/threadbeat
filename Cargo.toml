@@ -1,10 +1,13 @@
 [package]
 name = "threadbeat"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
 rust-version = "1.88"
 description = "Durable same-task heartbeat scheduling through an existing Codex app-server"
 license = "Apache-2.0"
+repository = "https://github.com/NightTrek/threadbeat"
+homepage = "https://github.com/NightTrek/threadbeat"
+readme = "README.md"
 publish = false
 
 [dependencies]

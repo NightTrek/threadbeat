@@ -1,6 +1,6 @@
 {
   "name": "threadbeat",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "Durable same-task heartbeat scheduling through an existing Codex app-server.",
   "author": {
     "name": "NightTrek"

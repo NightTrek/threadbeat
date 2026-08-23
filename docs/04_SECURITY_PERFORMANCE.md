@@ -1,6 +1,8 @@
 # Security, privacy, performance, and reliability review
 
-Status: revised after independent adversarial review; full MVP remains blocked pending Phase-1 evidence
+Status: target security/performance control set after adversarial review. Many controls remain unimplemented; `10_IMPLEMENTATION_STATUS.md` is the authoritative alpha matrix.
+
+Unless a control below is explicitly identified as implemented in `10_IMPLEMENTATION_STATUS.md`, treat it as a release requirement, test plan, or residual-risk analysis—not as a claim about the current binary.
 
 ## Security posture
 
