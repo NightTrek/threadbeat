@@ -82,8 +82,6 @@ output_dir=$(mktemp -d "$repo_dir/dist/local-$version-$host.XXXXXX")
   exit 0
 }
 
-command -v gh >/dev/null 2>&1 || { printf '%s\n' 'GitHub CLI is required for --publish.' >&2; exit 1; }
-gh auth status --hostname github.com >/dev/null
 [ "$(git branch --show-current)" = "main" ] || { printf '%s\n' 'Publish must run from main.' >&2; exit 1; }
 origin=$(git remote get-url origin)
 case "$origin" in
