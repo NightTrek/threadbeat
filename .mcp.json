@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "threadbeat": {
+      "command": "./bin/threadbeat",
+      "args": [
+        "mcp",
+        "--stdio"
+      ],
+      "cwd": "."
+    }
+  }
+}

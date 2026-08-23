@@ -1,6 +1,6 @@
 # Skill and plugin design
 
-Status: proposed package design; scaffolding waits on name and Phase-1 gate
+Status: implemented package scaffold; binary and image assets remain separate release work
 
 ## Why two skills
 
@@ -24,7 +24,7 @@ Required behavior:
 1. Treat heartbeat/current task as the default; never silently substitute standalone work.
 2. Use `automation_list` before creating when a duplicate is plausible.
 3. Parse user language into structured `once`, anchored `interval`, or `weekly` input.
-4. Use `automation_preview` for calendar/timezone ambiguity and for the configured consent flow.
+4. Explain or visualize the normalized schedule directly, including calendar/timezone ambiguity, then call `automation_update`; there is no separate preview tool.
 5. Repeat back normalized cadence, IANA timezone, next nominal time, catch-up, current-task serialization, and authority/experimental warnings.
 6. Use `suggested_create` when consent is not yet valid; do not fake approval with a Boolean or prose.
 7. Read current revision before update and preserve fields by omitting untouched patch keys.
@@ -115,24 +115,25 @@ The release archive contains one selected target binary, not binaries for every 
 
 ## Provisional `.mcp.json`
 
-Use the parser’s unambiguous direct top-level server map:
+Use the scaffold-validated companion shape with a top-level `mcpServers` map:
 
 ```json
 {
-  "threadbeat": {
-    "command": "./bin/threadbeat",
-    "args": ["mcp", "--stdio"],
-    "cwd": ".",
-    "env_vars": ["CODEX_HOME"]
+  "mcpServers": {
+    "threadbeat": {
+      "command": "./bin/threadbeat",
+      "args": ["mcp", "--stdio"],
+      "cwd": "."
+    }
   }
 }
 ```
 
-The binary uses a versioned absolute daemon socket path from installed configuration. It does not accept an agent-supplied endpoint or secret in tool arguments. The final config will avoid inheriting unnecessary environment variables; `CODEX_HOME` remains only if validation shows it is required for task metadata/discovery.
+The binary uses a versioned absolute daemon socket path from installed configuration. It does not accept an agent-supplied endpoint or secret in tool arguments, and the MCP process inherits no optional environment variables in the package scaffold.
 
-## Provisional `.codex-plugin/plugin.json`
+## Implemented `.codex-plugin/plugin.json`
 
-The exact name/paths are frozen after naming and asset approval. A valid target shape is:
+The package scaffold uses this asset-free shape:
 
 ```json
 {
@@ -162,20 +163,12 @@ The exact name/paths are frozen after naming and asset approval. A valid target 
       "Run this at 10 and 12, Monday through Thursday.",
       "Show my heartbeats and anything that needs attention."
     ],
-    "brandColor": "#6750E8",
-    "composerIcon": "./assets/composer-icon.png",
-    "logo": "./assets/logo-light.png",
-    "logoDark": "./assets/logo-dark.png",
-    "screenshots": [
-      "./assets/schedule-preview.png",
-      "./assets/run-lifecycle.png",
-      "./assets/daemon-health.png"
-    ]
+    "brandColor": "#6750E8"
   }
 }
 ```
 
-All referenced files must exist before validation. Optional public website/privacy/terms/repository/license fields are added only when real values and a license decision exist.
+The manifest references no image assets until reviewed files actually exist. Optional public website/privacy/terms/repository fields are added only when real values exist; the current package declares the repository's Apache-2.0 license.
 
 ## Development installation
 
@@ -220,7 +213,7 @@ Generate assets only after the name is selected. The name affects both the mark 
 
 ### Screenshots
 
-1. **Schedule preview:** “10:00 and 12:00, Monday–Thursday,” timezone, next local/UTC runs, catch-up, experimental/authority notice.
+1. **Schedule explanation:** “10:00 and 12:00, Monday–Thursday,” timezone, next local/UTC runs, catch-up, experimental/authority notice.
 2. **Run lifecycle:** clearly separates scheduled, task-queued, running, waiting, completed, and uncertain.
 3. **Daemon health:** Pi → constrained SSH/Unix path → existing app-server, with clock/storage/tested-build/queue capability checks and no secrets.
 

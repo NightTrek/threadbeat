@@ -54,7 +54,7 @@ Each canonical `(weekday, local_time)` has a stable slot ID derived from the nor
 (schedule_id, kind=weekly, slot_id, intended_local_date_time, resolution_ordinal)
 ```
 
-`resolution_ordinal` distinguishes first/second fold occurrences and logical gap resolutions. Resolved UTC time is also claimed through a universal execution-exclusion key `(schedule_id, resolved_nominal_instant)` that spans revisions and schedule kinds. Two logical slots that resolve to the same instant are recorded in collision metadata but coalesce into one executable run in MVP; the preview warns. This avoids both revision duplicates and ambiguous simultaneous logical slots.
+`resolution_ordinal` distinguishes first/second fold occurrences and logical gap resolutions. Resolved UTC time is also claimed through a universal execution-exclusion key `(schedule_id, resolved_nominal_instant)` that spans revisions and schedule kinds. Two logical slots that resolve to the same instant are recorded in collision metadata but coalesce into one executable run in MVP; the pre-mutation schedule explanation warns. This avoids both revision duplicates and ambiguous simultaneous logical slots.
 
 The database has both a unique logical-occurrence constraint and the universal resolved-instant exclusion across revisions. A schedule revision is stored on the row as the immutable payload/config snapshot that won materialization, not as a way to bypass uniqueness.
 

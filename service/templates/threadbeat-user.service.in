@@ -1,0 +1,41 @@
+[Unit]
+Description=Threadbeat durable same-task scheduler
+Documentation=@THREADBEAT_DOCUMENTATION@
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=@THREADBEAT_BINARY@ daemon --config @THREADBEAT_CONFIG@
+WorkingDirectory=@WORKING_DIRECTORY@
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=30s
+KillMode=mixed
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+ProtectClock=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=@RESTRICT_ADDRESS_FAMILIES@
+ReadOnlyPaths=@THREADBEAT_CONFIG@
+ReadWritePaths=@STATE_DIRECTORY@ @RUNTIME_DIRECTORY@ @LOG_DIRECTORY@
+
+[Install]
+WantedBy=default.target

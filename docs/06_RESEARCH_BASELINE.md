@@ -185,7 +185,7 @@ The planned manifest points to:
 
 Current installed plugin examples use a direct local executable with a relative `cwd`. Official [Codex MCP documentation](https://learn.chatgpt.com/docs/extend/mcp#stdio-servers) supports stdio servers with `command`, optional `args`, `env`, inherited `env_vars`, and `cwd`, plus Streamable HTTP for network servers.
 
-There is a current documentation/parser mismatch around a wrapped `.mcp.json` key (`mcp_servers` versus camel-case `mcpServers`). The source parser also accepts a direct top-level server map, so the proposal uses that unambiguous representation. See [Codex issue 22105](https://github.com/openai/codex/issues/22105) and the [current parser source](https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/plugin_config.rs).
+There is a current documentation/parser mismatch around `.mcp.json` naming (`mcp_servers` versus camel-case `mcpServers`). The implemented package follows the current scaffold and validator contract: a companion file with a top-level camel-case `mcpServers` map. See [Codex issue 22105](https://github.com/openai/codex/issues/22105) and the [current parser source](https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/plugin_config.rs).
 
 ## Rust MCP support
 

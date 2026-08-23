@@ -96,17 +96,16 @@ Prebuilt, signed and checksummed whole-plugin bundles are the default distributi
 
 ## Proposed agent tool surface
 
-Security review changed the initial five-tool proposal into seven risk-separated tools:
+The implemented package exposes six risk-separated tools. Schedule normalization is explained or visualized conversationally before the agent calls the mutation tool; there is no separate preview tool:
 
-1. `automation_preview`
-2. `automation_update`
-3. `automation_run`
-4. `automation_get`
-5. `automation_list`
-6. `automation_runs`
-7. `automation_doctor`
+1. `automation_update`
+2. `automation_run`
+3. `automation_get`
+4. `automation_list`
+5. `automation_runs`
+6. `automation_doctor`
 
-The current Codex app exposes one direct `codex_app__automation_update` tool; its exact description and declaration are captured in `06_RESEARCH_BASELINE.md`. Threadbeat retains `automation_update` for ordinary schedule changes but separates read-only preview and high-risk immediate/recovery operations so MCP annotations and consent policy can be accurate. Complete proposed descriptions, arguments, results, annotations, errors, and shared types are in `03_MCP_TOOL_CONTRACT.md`.
+The current Codex app exposes one direct `codex_app__automation_update` tool; its exact description and declaration are captured in `06_RESEARCH_BASELINE.md`. Threadbeat retains `automation_update` for schedule changes and separates high-risk immediate/recovery operations into `automation_run` so MCP annotations and consent policy remain accurate. Complete proposed descriptions, arguments, results, annotations, errors, and shared types are in `03_MCP_TOOL_CONTRACT.md`.
 
 ## Explicit non-goals for MVP
 

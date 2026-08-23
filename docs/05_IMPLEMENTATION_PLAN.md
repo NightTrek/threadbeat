@@ -137,7 +137,7 @@ If no released binary has the necessary queue capability, ship status remains te
 
 ### Work
 
-- Implement the seven risk-separated tools in `03_MCP_TOOL_CONTRACT.md` using exactly pinned `rmcp` features.
+- Implement the six risk-separated tools in `03_MCP_TOOL_CONTRACT.md` using exactly pinned `rmcp` features.
 - Generate input and output schemas from Rust types and snapshot them.
 - Bind MCP to the Phase-1-proven host-validated `_meta.threadId`; deny raw cross-task targeting and keep global/cross-task work CLI-only.
 - Enforce host/CLI consent policy, principal-scoped quotas, versioned canonical idempotency, optimistic revisions, display normalization, and stable safe errors.
@@ -161,7 +161,7 @@ If no released binary has the necessary queue capability, ship status remains te
 - Make `service plan` content-addressed; require exact digest approval for symlink-safe atomic apply.
 - Implement explicitly authorized signed-bundle install, downgrade-protected upgrade, safe uninstall, and rollback using absolute versioned binary paths.
 - Validate clock, paths, file modes, existing app-server reachability, initialize, strict queue capability, target task read/resume, and database durability.
-- Package `.codex-plugin/plugin.json` and direct-map `.mcp.json`.
+- Package `.codex-plugin/plugin.json` and the scaffold-validated `.mcp.json` with a top-level `mcpServers` map.
 - Write `threadbeat-automations` skill with minimal workflow/tool guidance.
 - Write `threadbeat-setup` skill with install, topology selection, doctor, upgrade, rollback, and removal steps.
 - Create prebuilt release selection and verified source-build fallback.

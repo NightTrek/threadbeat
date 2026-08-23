@@ -20,7 +20,7 @@ Before the independent reviews, the product and architecture roles were explicit
 | Delivery path | Direct turn start was initially considered | `turn/start` can steer into an active turn; only current queue path has idle-atomic admission | Strict mode requires capability-gated `thread/queue/*`; no silent direct fallback. |
 | One queue or two | Scheduler queue was the main product abstraction | App-server already has a durable per-task delivery queue, but no calendar semantics | Two named queues: Threadbeat owns time/occurrences; app-server owns due-prompt admission. |
 | Missed intervals | Replay could preserve every nominal event | A Pi restart or long run can produce a storm | Default heartbeat coalesces to one latest catch-up within 24 hours; `all` is bounded/advanced. |
-| Tool count | First draft proposed many CRUD operations, then one polymorphic mutation tool for parity | A small catalog helps selection, but reads/diagnostics deserve their own shape | PM chose one mutation plus reads; security then split preview and risky run control because MCP annotations cannot vary by union arm. Final proposal has seven tools. |
+| Tool count | First draft proposed many CRUD operations, then one polymorphic mutation tool for parity | A small catalog helps selection, but reads/diagnostics deserve their own shape | Final implementation has six tools: the agent explains the schedule itself, calls `automation_update` directly, and keeps risky run control separate. |
 | Confirmation | Universal two-phase confirmation was considered | Clear reversible schedule requests should not require ceremony | PM dropped universal confirmation; security review replaced ceremony with a real policy: host/CLI-verifiable grants by default, with explicit current-task trusted-agent opt-in. |
 | Stable fallback | A read-then-start fallback looked possible | It is a TOCTOU race and can steer into human work | Best-effort direct mode is not exposed in MVP. |
 | Exactly once | Desired as a scheduler quality goal | Upstream add is non-idempotent and queue-to-history handoff has a crash gap | Advertise durable, reconciled, duplicate-resistant delivery only; uncertainty stops replay. |
@@ -164,24 +164,23 @@ Disposition: **accepted; this is the implementation gate**.
 | Same-UID socket protection was overstated | Treat same-UID compromise as full compromise; dedicated account is the stronger mode; verify peer UID, inode, and parent directories. |
 | WSS was not a native tested app-server mode | Remove direct WSS from v1. Support same-host UDS and SSH-proxied app-server only. |
 | Artifact lifecycle was incomplete | Sign whole bundle, pinned trust root/provenance, versioned absolute paths, plan digest, atomic apply, downgrade protection, safe uninstall. |
-| Polymorphic tool mixed incompatible risk annotations | Split preview from mutations and separate run control/risky recovery from ordinary schedule edits. |
+| Polymorphic tool mixed incompatible risk annotations | Keep ordinary schedule mutation in `automation_update`, separate run control/risky recovery, and render the schedule conversationally without a preview tool. |
 | Boolean acknowledgments were model-forgeable | Replace with server-verifiable host/CLI consent grants. |
 | Request-key semantics were vague | Scope by principal/operation, version canonicalization, store hash plus stable IDs, define expiry/tombstones. |
 | Input/log display spoofing | Normalize printable names; reject controls, terminal escapes, and bidi overrides; never interpolate raw untrusted values into trusted advice. |
 
 ## Tool-catalog decision after review
 
-The PM favored one polymorphic mutation tool to mirror current Codex and reduce tool-choice ambiguity. Security review correctly noted that MCP annotations apply to the whole tool and cannot distinguish preview from deletion or uncertain replay.
+The PM favored one polymorphic mutation tool to mirror current Codex and reduce tool-choice ambiguity. The package keeps ordinary schedule changes in that tool, removes the separate preview tool, and retains a distinct run-control tool for higher-risk immediate and recovery operations.
 
 Revised catalog:
 
-1. `automation_preview` — read-only schedule normalization and pending intent.
-2. `automation_update` — create/suggested-create/update/pause/resume/soft-delete only.
-3. `automation_run` — run-now/cancel/retry/start-blocked, with stricter consent policy.
-4. `automation_get` — current-task metadata, prompt redacted by default.
-5. `automation_list` — current-task summaries.
-6. `automation_runs` — current-task lifecycle history.
-7. `automation_doctor` — sanitized read-only health.
+1. `automation_update` — create/suggested-create/update/pause/resume/soft-delete after the agent explains the normalized schedule.
+2. `automation_run` — run-now/cancel/retry/start-blocked, with stricter consent policy.
+3. `automation_get` — current-task metadata, prompt redacted by default.
+4. `automation_list` — current-task summaries.
+5. `automation_runs` — current-task lifecycle history.
+6. `automation_doctor` — sanitized read-only health.
 
 Purge, cross-task/global administration, endpoint/profile changes, service changes, and full secret-bearing diagnostics remain CLI-only.
 

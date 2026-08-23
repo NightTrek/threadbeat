@@ -52,7 +52,7 @@ A technical Codex user who keeps a Codex app-server running locally or on a remo
 
 1. The user gives weekdays and one or more local times.
 2. If timezone is not reliably available from configured context, the agent asks for it once.
-3. The preview returns the exact weekday/time Cartesian product, upcoming UTC instants, and DST policy.
+3. The agent explains the exact weekday/time Cartesian product, upcoming UTC instants, and DST policy before calling `automation_update`.
 4. It is created active when the configured host/CLI consent policy is satisfied; otherwise it is saved paused with an exact approval path.
 
 ### Restart after missed work
@@ -116,7 +116,7 @@ MVP supports a closed tagged union:
 - Weekly schedules require an IANA timezone such as `America/Los_Angeles`, never only `PDT` or `UTC-7`.
 - Spring-forward default: skip a nonexistent local time.
 - Fall-back default: run once at the first matching instant.
-- The preview shows upcoming local and UTC instants and warns when one encounters a transition.
+- The pre-mutation schedule explanation shows upcoming local and UTC instants and warns when one encounters a transition.
 - Materialized occurrences retain intended local time, resolved UTC time, offset, timezone, and resolver version; future unmaterialized occurrences may reflect tzdb updates.
 
 ### FR-5: durable occurrence ledger

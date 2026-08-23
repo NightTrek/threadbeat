@@ -1,0 +1,4 @@
+interface:
+  display_name: "Threadbeat Setup"
+  short_description: "Install and operate Threadbeat safely"
+  default_prompt: "Use $threadbeat-setup to plan a safe Threadbeat installation without applying changes yet."

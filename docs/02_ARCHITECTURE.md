@@ -86,7 +86,7 @@ One Rust workspace produces one release binary:
 The plugin contributes:
 
 - `.codex-plugin/plugin.json`;
-- `.mcp.json` using a direct top-level server map, avoiding the currently documented/parser wrapper-key mismatch;
+- `.mcp.json` using the validated scaffold shape with a top-level `mcpServers` map;
 - `threadbeat-automations` skill;
 - `threadbeat-setup` skill;
 - the platform binary selected at installation; and

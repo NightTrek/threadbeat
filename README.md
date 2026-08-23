@@ -1,10 +1,29 @@
-# Codex Automations Plugin
+# Threadbeat
 
-Design-stage repository for a Rust MCP scheduler and Codex plugin that deliver durable, same-thread automations through an existing Codex app-server daemon.
+Threadbeat is a Rust MCP scheduler and Codex plugin for durable, same-task heartbeat automations through an existing Codex app-server daemon. It never starts an app-server itself.
 
-The working product name is **Threadbeat**. The name remains provisional until the architecture review is approved.
+The public MCP surface has six tools: `automation_update`, `automation_run`, `automation_get`, `automation_list`, `automation_runs`, and `automation_doctor`. Schedule explanation and visualization stay in the bundled skill; there is no custom preview tool.
 
-## Review documents
+## Build
+
+Install Rust 1.88 or newer, then run:
+
+```sh
+cargo build --release --locked
+cargo test --locked
+```
+
+Copy the release executable to `bin/threadbeat` before installing the plugin. The plugin launches `threadbeat mcp --stdio`; the separately managed service runs `threadbeat daemon`.
+
+## Safety defaults
+
+- Delivery is disabled until the operator configures an existing app-server endpoint and explicitly enables it.
+- Strict compatibility rejects unverified app-server builds.
+- A new active heartbeat requires a short-lived task grant; `suggested_create` is stored paused.
+- Service installation is plan-and-apply and never enables or starts the service automatically.
+- Prompts, state, and the private control socket are stored with owner-only permissions.
+
+## Design and operations documents
 
 - [`docs/00_REVIEW_PACKET.md`](docs/00_REVIEW_PACKET.md) — executive proposal and decision gate
 - [`docs/01_PRODUCT_REQUIREMENTS.md`](docs/01_PRODUCT_REQUIREMENTS.md) — product requirements and acceptance criteria
@@ -17,4 +36,4 @@ The working product name is **Threadbeat**. The name remains provisional until t
 - [`docs/08_STATE_AND_TIME_SEMANTICS.md`](docs/08_STATE_AND_TIME_SEMANTICS.md) — revised normative crash, clock, and coalescing behavior
 - [`docs/09_SKILL_AND_PLUGIN_DESIGN.md`](docs/09_SKILL_AND_PLUGIN_DESIGN.md) — plugin manifest, skills, setup, distribution, and image brief
 
-No production implementation has been started. Independent review currently authorizes only a disposable compatibility/failure-semantics spike, not the persistent MVP.
+The implementation remains intentionally conservative around app-server compatibility: use `threadbeat schema check` against the exact deployed build before enabling delivery.

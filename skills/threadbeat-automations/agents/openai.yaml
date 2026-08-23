@@ -1,0 +1,4 @@
+interface:
+  display_name: "Threadbeat Automations"
+  short_description: "Schedule durable same-task heartbeats"
+  default_prompt: "Use $threadbeat-automations to schedule a durable follow-up in this task."

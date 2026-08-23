@@ -1,0 +1,40 @@
+{
+  "name": "threadbeat",
+  "version": "0.1.0",
+  "description": "Durable same-task heartbeat scheduling through an existing Codex app-server.",
+  "author": {
+    "name": "NightTrek"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "automation",
+    "scheduler",
+    "heartbeat",
+    "codex",
+    "raspberry-pi"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Threadbeat",
+    "shortDescription": "Durable heartbeats for Codex tasks",
+    "longDescription": "Schedule durable, serialized follow-ups in the originating Codex task through an existing separately managed app-server, with bounded catch-up and truthful run status.",
+    "developerName": "NightTrek",
+    "category": "Productivity",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo-dark.png",
+    "capabilities": [
+      "Same-task heartbeats",
+      "Weekly and interval schedules",
+      "Bounded catch-up and run history",
+      "Raspberry Pi and macOS service setup"
+    ],
+    "defaultPrompt": [
+      "Keep working on this every 30 minutes.",
+      "Run this at 10 and 12, Monday through Thursday.",
+      "Show my heartbeats and anything that needs attention."
+    ],
+    "brandColor": "#6750E8"
+  }
+}
