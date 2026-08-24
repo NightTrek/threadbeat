@@ -54,6 +54,23 @@ cargo test --locked
 
 The wrapper's deployable result is `bin/threadbeat`; copying it to a versioned service path remains a separate, explicit packaging step. On Raspberry Pi, prefer a packaged 64-bit ARM binary when that exact Pi OS/ABI target is published. A native source build installs a full Rust toolchain and can require substantial time, memory, temporary storage, and SD-card writes; on a constrained Pi, build in pinned CI or on a compatible host and still run a native smoke check on the Pi. Do not assume a host-built or cross-built binary matches the Pi's libc and CPU baseline without verification.
 
+### Install the source-built plugin in Codex CLI
+
+The repository includes a local marketplace catalog so a source user can install the built plugin through Codex rather than copying skills or editing MCP configuration by hand. Clone the public repository, inspect and pin the revision you intend to trust, then build the binary before installing the plugin:
+
+```sh
+git clone https://github.com/NightTrek/threadbeat.git
+cd threadbeat
+git rev-parse HEAD
+./scripts/build-local.sh
+cargo test --locked
+codex plugin marketplace add /absolute/path/to/threadbeat
+codex plugin add threadbeat@threadbeat
+codex plugin list
+```
+
+Use the clone's absolute path in `marketplace add`. The marketplace intentionally points at the local clone so the installed plugin contains that machine's native `bin/threadbeat`; adding the GitHub repository itself as a remote marketplace would not include an untracked source-build binary. Start a new Codex session after installation so its bundled skills and MCP tools are discovered. Plugin installation does not configure or activate the independent scheduler service; follow the `threadbeat-setup` skill and review the exact service plan and digest before applying or activating it.
+
 From a Git source checkout, maintainers can run the core local checks and native package build with:
 
 ```sh

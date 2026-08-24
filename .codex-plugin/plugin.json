@@ -3,8 +3,11 @@
   "version": "0.1.0-alpha.1",
   "description": "Durable same-task heartbeat scheduling through an existing Codex app-server.",
   "author": {
-    "name": "NightTrek"
+    "name": "NightTrek",
+    "url": "https://github.com/NightTrek"
   },
+  "homepage": "https://github.com/NightTrek/threadbeat#readme",
+  "repository": "https://github.com/NightTrek/threadbeat",
   "license": "Apache-2.0",
   "keywords": [
     "automation",
