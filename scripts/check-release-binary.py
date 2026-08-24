@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -25,6 +26,14 @@ LINUX_NEEDED = {
     "libpthread.so.0",
     "librt.so.1",
 }
+LINUX_LOADERS = {
+    "x86_64-unknown-linux-gnu": "ld-linux-x86-64.so.2",
+    "aarch64-unknown-linux-gnu": "ld-linux-aarch64.so.1",
+}
+LINUX_INTERPRETERS = {
+    "x86_64-unknown-linux-gnu": "/lib64/ld-linux-x86-64.so.2",
+    "aarch64-unknown-linux-gnu": "/lib/ld-linux-aarch64.so.1",
+}
 MACOS_NEEDED = {
     "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
     "/usr/lib/libSystem.B.dylib",
@@ -38,7 +47,34 @@ def fail(message: str) -> None:
 
 
 def output(command: list[str]) -> str:
-    return subprocess.run(command, check=True, capture_output=True, text=True).stdout
+    environment = os.environ.copy()
+    environment["LC_ALL"] = "C"
+    return subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    ).stdout
+
+
+def linux_needed_for_target(target: str) -> set[str]:
+    """Return the reviewed runtime libraries for one native Linux target."""
+    return LINUX_NEEDED | {LINUX_LOADERS[target]}
+
+
+def unexpected_linux_needed(target: str, dynamic: str) -> set[str]:
+    needed = set(re.findall(r"\(NEEDED\).*?\[([^\]]+)\]", dynamic))
+    return needed - linux_needed_for_target(target)
+
+
+def linux_interpreters(program_headers: str) -> list[str]:
+    return [
+        value.strip()
+        for value in re.findall(
+            r"Requesting program interpreter:\s*([^\]\r\n]+)", program_headers
+        )
+    ]
 
 
 def main() -> None:
@@ -68,12 +104,19 @@ def main() -> None:
 
     if args.target.endswith("linux-gnu"):
         dynamic = output(["readelf", "-d", str(binary)])
-        needed = set(re.findall(r"\(NEEDED\).*?\[([^\]]+)\]", dynamic))
-        unexpected = needed - LINUX_NEEDED
+        unexpected = unexpected_linux_needed(args.target, dynamic)
         if unexpected:
             fail(f"binary has unexpected dynamic dependencies: {sorted(unexpected)}")
         if "RPATH" in dynamic or "RUNPATH" in dynamic:
             fail("binary contains a dynamic loader search path")
+        program_headers = output(["readelf", "-lW", str(binary)])
+        interpreters = linux_interpreters(program_headers)
+        expected_interpreter = LINUX_INTERPRETERS[args.target]
+        if interpreters != [expected_interpreter]:
+            fail(
+                f"program interpreters are {interpreters!r}, "
+                f"expected exactly [{expected_interpreter!r}]"
+            )
         symbols = output(["objdump", "-T", str(binary)])
         versions = [tuple(map(int, match)) for match in re.findall(r"GLIBC_(\d+)\.(\d+)", symbols)]
         if not versions:
