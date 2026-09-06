@@ -19,7 +19,7 @@ directories = "=6.0.0"
 fs2 = "=0.4.3"
 futures-util = "=0.3.34"
 hex = "=0.4.3"
-rmcp = { version = "=3.1.4", default-features = false, features = ["macros", "server", "transport-io"] }
+rmcp = { version = "=3.2.0", default-features = false, features = ["macros", "server", "transport-io"] }
 rusqlite = { version = "=0.40.2", features = ["bundled", "chrono", "serde_json", "uuid"] }
 schemars = { version = "=1.2.2", features = ["chrono04", "uuid1"] }
 serde = { version = "=1.0.229", features = ["derive"] }
