@@ -28,7 +28,7 @@ sha2 = "=0.11.0"
 thiserror = "=2.0.20"
 tokio = { version = "=1.53.1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-tungstenite = "=0.30.0"
-toml = "=1.1.4"
+toml = "=1.1.5"
 tracing = "=0.1.44"
 tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "fmt"] }
 url = { version = "=2.5.8", features = ["serde"] }
