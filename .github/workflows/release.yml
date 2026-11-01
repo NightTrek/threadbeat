@@ -98,7 +98,7 @@ jobs:
             "${{ matrix.target }}" \
             "$RUNNER_TEMP/threadbeat-dist"
       - name: Upload target bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: bundle-${{ matrix.target }}
           path: ${{ runner.temp }}/threadbeat-dist/threadbeat-plugin-v${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz
@@ -133,7 +133,7 @@ jobs:
           --expected-commit "${{ needs.validate.outputs.commit }}"
           --write-checksums
       - name: Upload verified release files
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-files
           path: |
@@ -187,7 +187,7 @@ jobs:
           provenance="dist/threadbeat-v${version}-provenance.sigstore.json"
           cp "$ATTESTATION_BUNDLE" "$provenance"
       - name: Upload provenance bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: provenance-file
           path: dist/threadbeat-v${{ needs.validate.outputs.version }}-provenance.sigstore.json
